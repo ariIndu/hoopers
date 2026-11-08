@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Crisp Clean Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+/* Subtle architectural dot grid pattern for clean workspace */
+.light-grid-bg {
+  background-size: 24px 24px;
+  background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+}
+
+/* Crisp SVG Hexagon Styling */
+.hex-clean {
+  fill: #f8fafc;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+  transition: all 0.2s ease-in-out;
+}
+.hex-clean:hover {
+  fill: #ffffff;
+  stroke: #475569;
+}
+
+.hex-suspected {
+  fill: #fffbeb;
+  stroke: #f59e0b;
+  stroke-width: 2;
+  transition: all 0.2s ease-in-out;
+}
+.hex-suspected:hover {
+  fill: #fef3c7;
+}
+
+.hex-encrypted {
+  fill: #fef2f2;
+  stroke: #ef4444;
+  stroke-width: 2.2;
+  transition: all 0.2s ease-in-out;
+}
+.hex-encrypted:hover {
+  fill: #fee2e2;
+}
+
+.hex-exfiltrated {
+  fill: #faf5ff;
+  stroke: #a855f7;
+  stroke-width: 2.2;
+  transition: all 0.2s ease-in-out;
+}
+.hex-exfiltrated:hover {
+  fill: #f3e8ff;
+}
+
+.hex-recovered {
+  fill: #f0fdf4;
+  stroke: #10b981;
+  stroke-width: 2;
+  transition: all 0.2s ease-in-out;
+}
+.hex-recovered:hover {
+  fill: #dcfce7;
+}

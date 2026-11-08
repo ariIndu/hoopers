@@ -1,0 +1,14 @@
+{
+  "name": "beeswax-lite",
+  "version": "1.0.0",
+  "description": "Beeswax Lite - Air-Gapped Cyber Incident Command Center (HackUTD Winstead PC)",
+  "scripts": {
+    "server": "node server/server.js",
+    "client": "npm run dev --prefix client",
+    "dev": "node start-dev.js",
+    "build": "npm run build --prefix client"
+  },
+  "keywords": ["incident-response", "ciso", "soc", "air-gapped", "hash-chain", "nessus", "winstead"],
+  "author": "HackUTD Team",
+  "license": "MIT"
+}
