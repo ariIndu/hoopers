@@ -3,83 +3,106 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
   body {
     background-color: #f8fafc;
     color: #0f172a;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: inherit;
   }
 }
 
-/* Crisp Clean Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 4px;
+  border: 2px solid #f1f5f9;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #f59e0b;
+  background: #b7791f;
 }
 
-/* Subtle architectural dot grid pattern for clean workspace */
-.light-grid-bg {
-  background-size: 24px 24px;
-  background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #b7791f;
+  outline-offset: 2px;
 }
 
-/* Crisp SVG Hexagon Styling */
-.hex-clean {
-  fill: #f8fafc;
-  stroke: #94a3b8;
-  stroke-width: 1.5;
-  transition: all 0.2s ease-in-out;
-}
-.hex-clean:hover {
-  fill: #ffffff;
-  stroke: #475569;
+.asset-cell polygon {
+  transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
 }
 
-.hex-suspected {
-  fill: #fffbeb;
-  stroke: #f59e0b;
-  stroke-width: 2;
-  transition: all 0.2s ease-in-out;
-}
-.hex-suspected:hover {
-  fill: #fef3c7;
+.asset-cell:hover polygon,
+.asset-cell:focus-visible polygon {
+  fill: #ffefbf;
+  stroke: #92400e;
+  stroke-width: 3px;
 }
 
-.hex-encrypted {
-  fill: #fef2f2;
-  stroke: #ef4444;
-  stroke-width: 2.2;
-  transition: all 0.2s ease-in-out;
-}
-.hex-encrypted:hover {
+.asset-cell-critical:hover polygon,
+.asset-cell-critical:focus-visible polygon {
   fill: #fee2e2;
+  stroke: #991b1b;
 }
 
-.hex-exfiltrated {
-  fill: #faf5ff;
-  stroke: #a855f7;
-  stroke-width: 2.2;
-  transition: all 0.2s ease-in-out;
-}
-.hex-exfiltrated:hover {
-  fill: #f3e8ff;
+.asset-cell:hover text,
+.asset-cell:focus-visible text {
+  font-weight: 700;
 }
 
-.hex-recovered {
-  fill: #f0fdf4;
-  stroke: #10b981;
-  stroke-width: 2;
-  transition: all 0.2s ease-in-out;
-}
-.hex-recovered:hover {
-  fill: #dcfce7;
+@media print {
+  @page {
+    margin: 16mm;
+  }
+
+  html,
+  body,
+  #root,
+  #root > div,
+  #root main,
+  .screen-scroll {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .report-page,
+  .report-page * {
+    visibility: visible !important;
+  }
+
+  .print-hide,
+  .report-toolbar {
+    display: none !important;
+  }
+
+  .report-page {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .report-section {
+    break-inside: avoid;
+  }
 }

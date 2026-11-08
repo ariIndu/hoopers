@@ -44,18 +44,18 @@ function MainLayout() {
       {/* Top Command Navbar */}
       <Navbar 
         onOpenUsersModal={() => setIsUsersModalOpen(true)}
-        onOpenTamperDetails={() => setIsTamperModalOpen(true)}
+        onOpenIncident={() => setCurrentScreen('incident')}
       />
 
       {/* Main Body: Sidebar + Active Screen */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         
         <Sidebar 
           currentScreen={currentScreen} 
           setScreen={setCurrentScreen} 
         />
 
-        <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-50">
           {currentScreen === 'hive' && <HiveScreen />}
           {currentScreen === 'incident' && (
             <IncidentScreen onOpenTamperDetails={() => setIsTamperModalOpen(true)} />

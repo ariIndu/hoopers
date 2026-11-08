@@ -1,119 +1,41 @@
 import React from 'react';
-import { Hexagon, Zap, MessageSquare, Shield, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { useIncident } from '../context/IncidentContext';
+import { FileText, Hexagon, MessageSquare, Shield, Siren } from 'lucide-react';
+
+const navItems = [
+  { id: 'hive', label: 'Assets', icon: Hexagon },
+  { id: 'incident', label: 'Incident log', icon: Siren },
+  { id: 'chat', label: 'Team chat', icon: MessageSquare },
+  { id: 'nessus', label: 'Vulnerability scan', icon: Shield },
+  { id: 'board-brief', label: 'Board report', icon: FileText }
+];
 
 export default function Sidebar({ currentScreen, setScreen }) {
-  const { metrics, messages, nessusData } = useIncident();
-
-  const navItems = [
-    {
-      id: 'hive',
-      label: 'Hive & Assets',
-      desc: 'Scope & Asset Library',
-      icon: Hexagon,
-      badge: metrics.encrypted + metrics.exfiltrated > 0 ? `${metrics.encrypted + metrics.exfiltrated} compromised` : null,
-      badgeColor: 'bg-rose-50 text-rose-700 border border-rose-200'
-    },
-    {
-      id: 'incident',
-      label: 'Incident Log',
-      desc: 'Documentation & Timeline',
-      icon: Zap,
-      badge: 'SEV-1',
-      badgeColor: 'bg-amber-50 text-amber-800 border border-amber-300'
-    },
-    {
-      id: 'chat',
-      label: 'Tactical Chat',
-      desc: 'Air-Gapped Comms',
-      icon: MessageSquare,
-      badge: messages.length > 0 ? `${messages.length}` : null,
-      badgeColor: 'bg-slate-100 text-slate-700 border border-slate-200'
-    },
-    {
-      id: 'nessus',
-      label: 'Nessus Scanner',
-      desc: 'Vulnerability Posture',
-      icon: Shield,
-      badge: nessusData?.severityCounts?.critical ? `${nessusData.severityCounts.critical} Crit` : null,
-      badgeColor: 'bg-rose-50 text-rose-700 border border-rose-200'
-    },
-    {
-      id: 'board-brief',
-      label: 'Board Brief',
-      desc: 'CISO Executive Memo',
-      icon: FileText,
-      badge: 'HIPAA/PHI',
-      badgeColor: 'bg-purple-50 text-purple-700 border border-purple-200'
-    }
-  ];
-
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between flex-shrink-0 shadow-xs">
-      
-      {/* Navigation Links */}
-      <div className="p-3.5 space-y-1.5">
-        <div className="px-3 py-2 text-[11px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-          Command Modules
-        </div>
-
+    <aside className="print-hide flex w-full shrink-0 flex-col border-b border-slate-200 bg-white md:w-56 md:border-b-0 md:border-r">
+      <nav aria-label="Workspace tools" className="flex gap-1 overflow-x-auto p-2 md:flex-col md:gap-0.5 md:p-3">
         {navItems.map(item => {
           const Icon = item.icon;
-          const isActive = currentScreen === item.id;
-
+          const active = currentScreen === item.id;
           return (
             <button
               key={item.id}
+              type="button"
               onClick={() => setScreen(item.id)}
-              className={`w-full text-left px-3.5 py-3 rounded-xl transition flex items-center justify-between group ${
-                isActive
-                  ? 'bg-amber-50 border border-amber-300 text-amber-950 font-semibold shadow-xs'
-                  : 'hover:bg-slate-50 text-slate-700 border border-transparent'
+              aria-current={active ? 'page' : undefined}
+              className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition md:w-full ${
+                active ? 'bg-amber-100 font-medium text-amber-950' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
               }`}
             >
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg transition ${
-                  isActive 
-                    ? 'bg-amber-400 text-slate-950 font-bold shadow-xs' 
-                    : 'bg-slate-100 text-slate-500 group-hover:text-amber-700 group-hover:bg-amber-100/60'
-                }`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className={`text-sm tracking-tight ${isActive ? 'text-amber-950 font-bold' : 'text-slate-800 font-medium'}`}>
-                    {item.label}
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    {item.desc}
-                  </div>
-                </div>
-              </div>
-
-              {item.badge && (
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-medium ${item.badgeColor}`}>
-                  {item.badge}
-                </span>
-              )}
+              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-amber-800' : 'text-slate-500'}`} />
+              <span>{item.label}</span>
             </button>
           );
         })}
-      </div>
+      </nav>
 
-      {/* Out-of-band Air-gap Status Box */}
-      <div className="p-3.5 m-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-        <div className="flex items-center gap-2 mb-1.5 text-slate-900 font-semibold">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Hardened Node Isolation</span>
-        </div>
-        <p className="text-[11px] text-slate-500 leading-relaxed">
-          Zero external internet dependencies or CDNs. 100% operational in hostile corporate networks.
-        </p>
-        <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-mono text-slate-500">
-          <span>LAN THREAT:</span>
-          <span className="text-rose-700 font-bold">HOSTILE / ADVERSARY</span>
-        </div>
-      </div>
-
+      <p className="mx-3 mb-3 mt-auto hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950 md:block">
+        Don’t use corporate email, Slack, or Teams.
+      </p>
     </aside>
   );
 }

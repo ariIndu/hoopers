@@ -1,118 +1,77 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useIncident } from '../context/IncidentContext';
 import { useAuth } from '../context/AuthContext';
-import { 
-  MessageSquare, Send, ShieldAlert, Lock, Radio, 
-  Terminal, User, CheckCircle2, AlertTriangle, ShieldCheck
-} from 'lucide-react';
+import { Send } from 'lucide-react';
 
 export default function ChatScreen() {
-  const { messages, sendChatMessage } = useIncident();
+  const { messages, sendChatMessage, wsConnected } = useIncident();
   const { user } = useAuth();
-
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function handleSend(e) {
-    e.preventDefault();
-    if (!input.trim() || sending) return;
+  async function handleSend(event) {
+    event.preventDefault();
+    const text = input.trim();
+    if (!text || sending) return;
     setSending(true);
     try {
-      await sendChatMessage(input.trim());
+      await sendChatMessage(text);
       setInput('');
-    } catch (err) {
-      alert('Failed to send message: ' + err.message);
+    } catch (error) {
+      alert(`Could not send message: ${error.message}`);
     } finally {
       setSending(false);
     }
   }
 
-  function handleSendCanned(text) {
-    setInput(text);
-  }
-
-  const tacticalSnippets = [
-    'VLAN 40 isolation confirmed complete. Core L3 routes dropped.',
-    'Forensic volatile RAM image dumped from AD-DC-01.',
-    'Winstead PC external breach counsel retained under privilege.',
-    'Under HIPAA 45 CFR § 164.404, we have a 60-day notification clock on PHI.',
-    'Air-gapped backup NAS-AIRGAP verified untampered and clean.',
-    'Do NOT communicate ransom details over corporate Teams or Slack.'
-  ];
-
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-84px)] overflow-hidden bg-slate-50 p-6 space-y-4">
-      
-      {/* Air-gapped Out-of-band Critical Warning Banner - Clean Amber Alert */}
-      <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 shadow-xs flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-amber-100 border border-amber-300 rounded-xl text-amber-800">
-            <ShieldAlert className="w-5 h-5" />
-          </div>
+    <section className="screen-scroll flex-1 overflow-y-auto bg-slate-50 p-4 md:p-7">
+      <div className="mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-amber-950 tracking-tight font-sans">
-                Out-of-Band Air-Gapped Tactical Channel
-              </h2>
-              <span className="text-[10px] font-mono font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
-                RESTRICTED
-              </span>
-            </div>
-            <p className="text-xs text-amber-900/80 mt-0.5">
-              Protocol: Do not use corporate email, Slack, or Microsoft Teams. Internal mail servers are assumed compromised.
-            </p>
+            <h1 className="font-semibold text-slate-950">Incident response</h1>
+            <p className="mt-0.5 text-xs text-slate-500">Team chat</p>
           </div>
+          <span className="flex items-center gap-2 text-xs text-slate-500">
+            <i className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+            {wsConnected ? 'Connected' : 'Reconnecting'}
+          </span>
+        </header>
+
+        <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-sm text-amber-950">
+          Don’t use corporate email, Slack, or Teams for incident response.
         </div>
 
-        <div className="flex items-center space-x-2 text-xs font-mono text-slate-600">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Local WebSocket Bus // Zero External Relays</span>
-        </div>
-      </div>
-
-      {/* Main Chat Container - Clean White Card */}
-      <div className="flex-1 bg-white border border-slate-200 rounded-2xl flex flex-col justify-between overflow-hidden shadow-xs">
-        
-        {/* Messages Feed */}
-        <div className="flex-1 p-5 overflow-y-auto space-y-4">
-          {messages.map((msg, idx) => {
-            const isMe = msg.sender === user?.username;
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 md:px-6">
+          {messages.length === 0 && (
+            <p className="py-10 text-center text-sm text-slate-500">No messages yet. Start the conversation with your response team.</p>
+          )}
+          {messages.map((message, index) => {
+            const isMe = message.sender === user?.username;
+            const sender = message.senderName || message.sender || 'Team member';
+            const initials = sender.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+            const timestamp = message.ts ? new Date(message.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
 
             return (
-              <div 
-                key={msg.id || idx}
-                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-              >
-                <div className="flex items-center space-x-2 mb-1 px-1">
-                  <span className="text-xs font-bold text-slate-800">
-                    {msg.senderName || msg.sender}
-                  </span>
-                  
-                  <span className={`text-[9px] font-mono uppercase px-1.5 py-0.2 rounded border ${
-                    msg.role === 'Admin' ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                    msg.role === 'Responder' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                    'bg-slate-100 text-slate-700 border-slate-200'
-                  }`}>
-                    {msg.role}
-                  </span>
-
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {new Date(msg.ts).toLocaleTimeString()}
-                  </span>
+              <div key={message.id || `${message.sender}-${index}`} className={`flex items-end gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                  {initials}
                 </div>
-
-                <div className={`max-w-xl p-3.5 rounded-2xl text-xs font-mono leading-relaxed shadow-xs ${
-                  isMe
-                    ? 'bg-amber-50 border border-amber-300 text-amber-950 rounded-tr-none'
-                    : 'bg-slate-100 border border-slate-200 text-slate-900 rounded-tl-none'
-                }`}>
-                  {msg.text}
+                <div className={`max-w-[82%] ${isMe ? 'text-right' : ''}`}>
+                  <div className={`mb-1 flex items-center gap-2 text-xs text-slate-500 ${isMe ? 'justify-end' : ''}`}>
+                    <span className="font-medium text-slate-700">{isMe ? 'You' : sender}</span>
+                    {timestamp && <time>{timestamp}</time>}
+                  </div>
+                  <div className={`rounded-2xl px-4 py-2.5 text-left text-sm leading-6 ${
+                    isMe ? 'rounded-br-sm bg-amber-100 text-slate-900' : 'rounded-bl-sm bg-slate-100 text-slate-800'
+                  }`}>
+                    {message.text}
+                  </div>
                 </div>
               </div>
             );
@@ -120,46 +79,29 @@ export default function ChatScreen() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Tactical Canned Presets */}
-        <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center space-x-2 overflow-x-auto text-xs font-sans">
-          <span className="text-slate-500 font-medium flex items-center gap-1 flex-shrink-0">
-            <Terminal className="w-3.5 h-3.5 text-amber-600" />
-            Quick Directives:
-          </span>
-          {tacticalSnippets.map((snippet, i) => (
+        <form onSubmit={handleSend} className="border-t border-slate-200 p-3 md:p-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={event => setInput(event.target.value)}
+              placeholder="Message the response team"
+              aria-label="Message the response team"
+              disabled={sending}
+              required
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-100"
+            />
             <button
-              key={i}
-              onClick={() => handleSendCanned(snippet)}
-              className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 border border-slate-200 whitespace-nowrap transition text-xs shadow-xs"
+              type="submit"
+              disabled={sending || !input.trim()}
+              aria-label="Send message"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {snippet.substring(0, 32)}...
+              <Send className="h-4 w-4" />
             </button>
-          ))}
-        </div>
-
-        {/* Chat Input Form */}
-        <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-200 flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="Broadcast tactical directive to incident response team..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            disabled={sending}
-            className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 font-mono shadow-xs"
-            required
-          />
-          <button
-            type="submit"
-            disabled={sending || !input.trim()}
-            className="px-5 py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-xs disabled:opacity-50"
-          >
-            <Send className="w-4 h-4" />
-            <span>Send</span>
-          </button>
+          </div>
         </form>
-
       </div>
-
-    </div>
+    </section>
   );
 }

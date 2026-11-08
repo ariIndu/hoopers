@@ -4,9 +4,9 @@ const AuthContext = createContext(null);
 
 export const PRESET_USERS = [
   {
-    username: 'chris.white',
+    username: 'alex.morgan',
     password: 'ciso2026',
-    name: 'Chris White',
+    name: 'Alex Morgan',
     role: 'Admin',
     title: 'Chief Information Security Officer (CISO)',
     desc: 'Full command authority & board brief signatory'
@@ -47,8 +47,8 @@ export function AuthProvider({ children }) {
     async function checkAuth() {
       const savedToken = localStorage.getItem('beeswax_token');
       if (!savedToken) {
-        // Auto-login as Chris White (CISO) for immediate seamless demo experience
-        await quickLogin('chris.white');
+        // Auto-login as the demo CISO for immediate seamless demo experience
+        await quickLogin('alex.morgan');
         setLoading(false);
         return;
       }
@@ -62,11 +62,11 @@ export function AuthProvider({ children }) {
           setToken(savedToken);
         } else {
           localStorage.removeItem('beeswax_token');
-          await quickLogin('chris.white');
+          await quickLogin('alex.morgan');
         }
       } catch (err) {
         console.error('Auth verification failed:', err);
-        await quickLogin('chris.white');
+        await quickLogin('alex.morgan');
       } finally {
         setLoading(false);
       }

@@ -37,8 +37,8 @@ const USERS = [
   },
   {
     id: 'usr_ciso',
-    username: 'chris.white',
-    name: 'Chris White',
+    username: 'alex.morgan',
+    name: 'Alex Morgan',
     role: 'Admin',
     passHash: bcrypt.hashSync('ciso2026', 10),
     title: 'Chief Information Security Officer (CISO)'
@@ -70,13 +70,23 @@ let INCIDENT = {
   attackVector: 'Unpatched Edge VPN (CVE-2024-21762) -> Credential Pivot',
   phase: 'Contain', // Detect -> Contain -> Eradicate -> Recover
   summary: 'Adversary breached perimeter VPN gateway (FortiOS CVE-2024-21762), moved laterally into internal Health Actuary database clusters, deployed BlackCat/ALPHV ransomware variant on billing nodes, and initiated exfiltration of 42GB of PHI data to shadow IT cloud staging repository.',
-  leadCommander: 'Chris White (CISO) & Sarah Chen (DFIR Lead)',
+  leadCommander: 'Alex Morgan (CISO) & Sarah Chen (DFIR Lead)',
   networkState: 'Segmented / Isolated VLAN 40',
   ransomNotePresent: true,
   ransomDemanded: '45 BTC (~$3.1M USD) - PAYMENT REFUSED'
 };
 
-// 3. Hive Assets (19 assets in a structured honeycomb lattice)
+let INCIDENT_REGISTER = [
+  {
+    ...INCIDENT,
+    status: 'Active',
+    createdAt: INCIDENT.discoveredAt,
+    createdBy: 'System seed',
+    current: true
+  }
+];
+
+// 3. Incident assets (12 representative systems in a honeycomb lattice)
 // Statuses: clean, suspected, encrypted, exfiltrated, recovered
 // Data Classes: PHI, PII, Crown Jewels, Client Data, Internal, Shadow IT
 let ASSETS = [
@@ -88,7 +98,7 @@ let ASSETS = [
     type: 'VPN Gateway',
     dataClass: 'Internal',
     status: 'suspected',
-    row: 0, col: 1,
+    row: 0, col: 0,
     description: 'Fortinet FortiOS SSL-VPN gateway. Initial patient zero compromise vector via CVE-2024-21762.',
     nessusRisk: 'Critical',
     cveList: ['CVE-2024-21762']
@@ -101,21 +111,8 @@ let ASSETS = [
     type: 'API Gateway',
     dataClass: 'PHI',
     status: 'clean',
-    row: 0, col: 2,
+    row: 0, col: 1,
     description: 'Reverse proxy routing incoming patient telemetry to internal medical systems.',
-    nessusRisk: 'Low',
-    cveList: []
-  },
-  {
-    id: 'sw-core-01',
-    name: 'SW-CORE-PRIMARY',
-    ip: '10.0.0.1',
-    vlan: 'VLAN 1 (Management)',
-    type: 'Core Switch',
-    dataClass: 'Crown Jewels',
-    status: 'clean',
-    row: 0, col: 3,
-    description: 'L3 Backbone aggregation switch with ACL enforcement rules.',
     nessusRisk: 'Low',
     cveList: []
   },
@@ -127,7 +124,7 @@ let ASSETS = [
     type: 'Domain Controller',
     dataClass: 'Crown Jewels',
     status: 'suspected',
-    row: 1, col: 0,
+    row: 0, col: 2,
     description: 'Windows Server 2022 Primary Active Directory. Attacker attempted Zerologon & DCSync replication.',
     nessusRisk: 'Critical',
     cveList: ['CVE-2020-1472', 'CVE-2021-42287']
@@ -140,7 +137,7 @@ let ASSETS = [
     type: 'Domain Controller',
     dataClass: 'Crown Jewels',
     status: 'clean',
-    row: 1, col: 1,
+    row: 0, col: 3,
     description: 'Secondary Domain Controller. Hardened replication partner.',
     nessusRisk: 'Medium',
     cveList: []
@@ -153,7 +150,7 @@ let ASSETS = [
     type: 'Database',
     dataClass: 'PHI',
     status: 'exfiltrated',
-    row: 1, col: 2,
+    row: 1, col: 0,
     description: 'PostgreSQL cluster housing proprietary health insurance mortality models and patient actuary risk tables. Forensic logs confirm 42GB staged outbound.',
     nessusRisk: 'Critical',
     cveList: ['CVE-2023-39417']
@@ -166,7 +163,7 @@ let ASSETS = [
     type: 'Application Server',
     dataClass: 'PHI',
     status: 'encrypted',
-    row: 1, col: 3,
+    row: 1, col: 1,
     description: 'Processes insurance pre-authorizations and HIPAA claims. Encrypted with ALPHV payload. .locked extension appended.',
     nessusRisk: 'High',
     cveList: ['CVE-2021-34527']
@@ -179,7 +176,7 @@ let ASSETS = [
     type: 'Integration Server',
     dataClass: 'PHI',
     status: 'recovered',
-    row: 1, col: 4,
+    row: 1, col: 2,
     description: 'HL7 / FHIR bridge to hospital EMR systems. Isolated and restored from immutable offline snapshot.',
     nessusRisk: 'Low',
     cveList: []
@@ -192,7 +189,7 @@ let ASSETS = [
     type: 'Database',
     dataClass: 'Client Data',
     status: 'encrypted',
-    row: 2, col: 0,
+    row: 1, col: 3,
     description: 'MS SQL Server containing enterprise billing schedules and ACH routing numbers. Ransom note dropped at C:\\HOW_TO_RECOVER.txt.',
     nessusRisk: 'High',
     cveList: ['CVE-2021-34527']
@@ -205,7 +202,7 @@ let ASSETS = [
     type: 'Analytics Cluster',
     dataClass: 'Internal',
     status: 'suspected',
-    row: 2, col: 1,
+    row: 2, col: 0,
     description: 'Myriddian / Potomac Intelligence Workbench running Monte Carlo actuary risk simulations.',
     nessusRisk: 'Critical',
     cveList: ['CVE-2021-44228']
@@ -218,7 +215,7 @@ let ASSETS = [
     type: 'Cloud Storage',
     dataClass: 'PHI',
     status: 'exfiltrated',
-    row: 2, col: 2,
+    row: 2, col: 1,
     description: 'SHADOW IT: Unauthorized MinIO object bucket configured by dev team without CISO approval. Used by attacker as egress staging conduit.',
     nessusRisk: 'Critical',
     cveList: ['CVE-2023-28432']
@@ -231,22 +228,9 @@ let ASSETS = [
     type: 'Mail Server',
     dataClass: 'Client Data',
     status: 'suspected',
-    row: 2, col: 3,
+    row: 2, col: 2,
     description: 'Corporate mail server. Compromised user inbox used to send internal phishing lures.',
     nessusRisk: 'High',
-    cveList: []
-  },
-  {
-    id: 'hr-workday-sync',
-    name: 'HR-WORKDAY-SYNC',
-    ip: '10.0.20.15',
-    vlan: 'VLAN 20 (Finance)',
-    type: 'Integration Server',
-    dataClass: 'PII',
-    status: 'encrypted',
-    row: 2, col: 4,
-    description: 'Employee payroll and SSN sync daemon. File system encrypted; volume shadow copies wiped.',
-    nessusRisk: 'Medium',
     cveList: []
   },
   {
@@ -257,73 +241,8 @@ let ASSETS = [
     type: 'Storage NAS',
     dataClass: 'Crown Jewels',
     status: 'clean',
-    row: 3, col: 1,
+    row: 2, col: 3,
     description: 'WORM (Write Once Read Many) immutable ZFS backup repository with air-gapped physical replication. Safe and intact.',
-    nessusRisk: 'Low',
-    cveList: []
-  },
-  {
-    id: 'gitlab-ci-runner',
-    name: 'GITLAB-RUNNER-01',
-    ip: '10.0.30.14',
-    vlan: 'VLAN 30 (Analytics)',
-    type: 'CI/CD Worker',
-    dataClass: 'Internal',
-    status: 'clean',
-    row: 3, col: 2,
-    description: 'Build automation server. Credential cache flushed upon incident declaration.',
-    nessusRisk: 'Low',
-    cveList: []
-  },
-  {
-    id: 'scada-chiller-mgmt',
-    name: 'OT-CHILLER-MGMT',
-    ip: '192.168.100.5',
-    vlan: 'VLAN 80 (Facility OT)',
-    type: 'OT Controller',
-    dataClass: 'Operational',
-    status: 'clean',
-    row: 3, col: 3,
-    description: 'Datacenter HVAC and power distribution SCADA system. Isolated by physical air-gap.',
-    nessusRisk: 'Low',
-    cveList: []
-  },
-  {
-    id: 'pki-ca-offline',
-    name: 'PKI-ROOT-CA',
-    ip: '10.0.50.2',
-    vlan: 'VLAN 50 (Vault)',
-    type: 'PKI Vault',
-    dataClass: 'Crown Jewels',
-    status: 'clean',
-    row: 3, col: 0,
-    description: 'Root Certificate Authority. Offline HSM signed. Verified untouched.',
-    nessusRisk: 'Low',
-    cveList: []
-  },
-  {
-    id: 'jumpbox-bastion',
-    name: 'JUMPBOX-ADMIN',
-    ip: '10.0.10.9',
-    vlan: 'VLAN 10 (Admin)',
-    type: 'Bastion Host',
-    dataClass: 'Internal',
-    status: 'recovered',
-    row: 0, col: 0,
-    description: 'Administrative jumpbox. Session logs retrieved for DFIR forensic timeline.',
-    nessusRisk: 'Medium',
-    cveList: []
-  },
-  {
-    id: 'edr-telemetry-broker',
-    name: 'EDR-BROKER-01',
-    ip: '10.0.10.2',
-    vlan: 'VLAN 10 (Admin)',
-    type: 'Security Sensor',
-    dataClass: 'Internal',
-    status: 'clean',
-    row: 1, col: 5,
-    description: 'Host-based detection collector. Retained 14 days of volatile memory and process dumps.',
     nessusRisk: 'Low',
     cveList: []
   }
@@ -364,7 +283,7 @@ const INITIAL_TIMELINE_ENTRIES = [
   {
     seq: 5,
     ts: new Date(Date.now() - 2.8 * 3600 * 1000).toISOString(),
-    actor: 'chris.white (CISO)',
+    actor: 'alex.morgan (CISO)',
     text: 'SEV-1 INCIDENT DECLARED. Out-of-band communication protocol activated. All corporate Slack & email channels declared compromised.',
     actionType: 'COMMAND'
   },
@@ -378,7 +297,7 @@ const INITIAL_TIMELINE_ENTRIES = [
   {
     seq: 7,
     ts: new Date(Date.now() - 1.8 * 3600 * 1000).toISOString(),
-    actor: 'chris.white (CISO)',
+    actor: 'alex.morgan (CISO)',
     text: 'CONTAINMENT ORDER: Physical network isolation executed on VLAN 40 (Health Actuary) and VLAN 20 (Finance). Offline backups verified intact.',
     actionType: 'CONTAINMENT'
   },
@@ -413,8 +332,8 @@ let MESSAGES = [
   {
     id: 'msg_1',
     ts: new Date(Date.now() - 3.5 * 3600 * 1000).toISOString(),
-    sender: 'chris.white',
-    senderName: 'Chris White (CISO)',
+    sender: 'alex.morgan',
+    senderName: 'Alex Morgan (CISO)',
     role: 'Admin',
     text: 'Team: Assume the corporate network is hostile. Zero traffic on Teams or Outlook. This Beeswax instance is our sole command post.'
   },
@@ -437,8 +356,8 @@ let MESSAGES = [
   {
     id: 'msg_4',
     ts: new Date(Date.now() - 1.5 * 3600 * 1000).toISOString(),
-    sender: 'chris.white',
-    senderName: 'Chris White (CISO)',
+    sender: 'alex.morgan',
+    senderName: 'Alex Morgan (CISO)',
     role: 'Admin',
     text: 'Understood. We are preparing the CISO Board Brief now. No FUD—confirmed facts only. Backup NAS is safe. We will NOT pay ransom.'
   }
@@ -446,10 +365,10 @@ let MESSAGES = [
 
 // 6. Board Decisions Checklist State
 let BOARD_DECISIONS = {
-  retainForensics: { id: 'retainForensics', label: 'Approve External Forensics Firm (Mandiant / CrowdStrike retainer)', approved: true, approvedBy: 'Chris White (CISO)', timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString() },
-  retainCounsel: { id: 'retainCounsel', label: 'Retain External Breach Counsel under Attorney-Client Privilege (Winstead PC)', approved: true, approvedBy: 'Chris White (CISO)', timestamp: new Date(Date.now() - 3.5 * 3600 * 1000).toISOString() },
+  retainForensics: { id: 'retainForensics', label: 'Approve External Forensics Firm (Mandiant / CrowdStrike retainer)', approved: true, approvedBy: 'Alex Morgan (CISO)', timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString() },
+  retainCounsel: { id: 'retainCounsel', label: 'Retain External Breach Counsel under Attorney-Client Privilege (Winstead PC)', approved: true, approvedBy: 'Alex Morgan (CISO)', timestamp: new Date(Date.now() - 3.5 * 3600 * 1000).toISOString() },
   notifyInsurance: { id: 'notifyInsurance', label: 'Formal Notice to Cyber Insurance Carrier (Policy #WIN-CYBER-881)', approved: true, approvedBy: 'Board Chair', timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString() },
-  vlanIsolation: { id: 'vlanIsolation', label: 'Authorize Complete Physical Network Disconnect of VLAN 40 (Health Actuary)', approved: true, approvedBy: 'Chris White (CISO)', timestamp: new Date(Date.now() - 2.5 * 3600 * 1000).toISOString() },
+  vlanIsolation: { id: 'vlanIsolation', label: 'Authorize Complete Physical Network Disconnect of VLAN 40 (Health Actuary)', approved: true, approvedBy: 'Alex Morgan (CISO)', timestamp: new Date(Date.now() - 2.5 * 3600 * 1000).toISOString() },
   refuseRansom: { id: 'refuseRansom', label: 'Refuse 45 BTC Ransom Demand (Follow FBI / CISA Guidance)', approved: true, approvedBy: 'Board of Directors', timestamp: new Date(Date.now() - 1.5 * 3600 * 1000).toISOString() }
 };
 
@@ -700,6 +619,45 @@ app.post('/api/users', authMiddleware, requireRoles(['Admin']), (req, res) => {
 });
 
 // Incident Routes
+app.get('/api/incidents', (req, res) => {
+  res.json({ incidents: INCIDENT_REGISTER });
+});
+
+app.post('/api/incidents', authMiddleware, requireRoles(['Admin', 'Responder']), (req, res) => {
+  const { title, severity = 'High', phase = 'Detect', attackVector = '', summary = '' } = req.body;
+  const allowedSeverities = ['Critical', 'High', 'Medium', 'Low'];
+  const allowedPhases = ['Detect', 'Contain', 'Eradicate', 'Recover'];
+
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'Incident title is required' });
+  }
+  if (title.trim().length > 160 || String(attackVector).length > 240 || String(summary).length > 4000) {
+    return res.status(400).json({ error: 'Incident details exceed the allowed length' });
+  }
+  if (!allowedSeverities.includes(severity) || !allowedPhases.includes(phase)) {
+    return res.status(400).json({ error: 'Invalid severity or response phase' });
+  }
+
+  const createdAt = new Date().toISOString();
+  const newIncident = {
+    id: `INC-${Date.now()}`,
+    title: title.trim(),
+    severity,
+    phase,
+    attackVector: String(attackVector).trim(),
+    summary: String(summary).trim(),
+    discoveredAt: createdAt,
+    createdAt,
+    createdBy: req.user.name,
+    status: 'Open',
+    current: false
+  };
+
+  INCIDENT_REGISTER.push(newIncident);
+  broadcast('INCIDENT_REGISTER_UPDATE', INCIDENT_REGISTER);
+  res.status(201).json({ incident: newIncident, incidents: INCIDENT_REGISTER });
+});
+
 app.get('/api/incident', (req, res) => {
   res.json({ incident: INCIDENT });
 });
@@ -720,6 +678,11 @@ app.put('/api/incident', authMiddleware, requireRoles(['Admin', 'Responder']), (
     networkState: networkState || INCIDENT.networkState,
     ransomDemanded: ransomDemanded || INCIDENT.ransomDemanded
   };
+  INCIDENT_REGISTER = INCIDENT_REGISTER.map(item =>
+    item.id === INCIDENT.id
+      ? { ...item, ...INCIDENT, current: true }
+      : item
+  );
 
   // If phase or severity changed, append to hash-chain
   let logText = `Incident parameters updated by ${req.user.name}.`;
@@ -749,6 +712,7 @@ app.put('/api/incident', authMiddleware, requireRoles(['Admin', 'Responder']), (
   ORIGINAL_AUTHENTIC_TIMELINE.push(timelineItem);
 
   broadcast('INCIDENT_UPDATE', INCIDENT);
+  broadcast('INCIDENT_REGISTER_UPDATE', INCIDENT_REGISTER);
   broadcast('TIMELINE_NEW', timelineItem);
 
   res.json({ incident: INCIDENT });

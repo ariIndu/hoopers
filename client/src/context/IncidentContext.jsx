@@ -8,6 +8,7 @@ export function IncidentProvider({ children }) {
   const { token } = useAuth();
 
   const [incident, setIncident] = useState(null);
+  const [incidents, setIncidents] = useState([]);
   const [assets, setAssets] = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -35,8 +36,9 @@ export function IncidentProvider({ children }) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [incRes, astRes, tmlRes, msgRes, nssRes, bdcRes] = await Promise.all([
+      const [incRes, incidentsRes, astRes, tmlRes, msgRes, nssRes, bdcRes] = await Promise.all([
         fetch('/api/incident'),
+        fetch('/api/incidents'),
         fetch('/api/assets'),
         fetch('/api/timeline'),
         fetch('/api/chat'),
@@ -44,8 +46,9 @@ export function IncidentProvider({ children }) {
         fetch('/api/board-brief/decisions')
       ]);
 
-      const [incData, astData, tmlData, msgData, nssData, bdcData] = await Promise.all([
+      const [incData, incidentsData, astData, tmlData, msgData, nssData, bdcData] = await Promise.all([
         incRes.json(),
+        incidentsRes.json(),
         astRes.json(),
         tmlRes.json(),
         msgRes.json(),
@@ -54,6 +57,7 @@ export function IncidentProvider({ children }) {
       ]);
 
       if (incData.incident) setIncident(incData.incident);
+      if (incidentsData.incidents) setIncidents(incidentsData.incidents);
       if (astData.assets) setAssets(astData.assets);
       if (tmlData.timeline) {
         setTimeline(tmlData.timeline);
@@ -97,6 +101,9 @@ export function IncidentProvider({ children }) {
             switch (type) {
               case 'INCIDENT_UPDATE':
                 setIncident(payload);
+                break;
+              case 'INCIDENT_REGISTER_UPDATE':
+                setIncidents(payload);
                 break;
               case 'ASSET_UPDATE':
                 setAssets(prev => prev.map(a => a.id === payload.id ? payload : a));
@@ -159,6 +166,22 @@ export function IncidentProvider({ children }) {
   }, [runVerification]);
 
   // Actions
+  async function createIncident(fields) {
+    if (!token) throw new Error('Sign in before creating an incident record.');
+    const res = await fetch('/api/incidents', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(fields)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not create incident record');
+    setIncidents(data.incidents);
+    return data.incident;
+  }
+
   async function updateIncident(fields) {
     if (!token) return;
     const res = await fetch('/api/incident', {
@@ -316,6 +339,7 @@ export function IncidentProvider({ children }) {
   return (
     <IncidentContext.Provider value={{
       incident,
+      incidents,
       assets,
       timeline,
       messages,
@@ -328,6 +352,7 @@ export function IncidentProvider({ children }) {
       wsConnected,
       loading,
       isTampering,
+      createIncident,
       updateIncident,
       updateAssetStatus,
       addTimelineNote,

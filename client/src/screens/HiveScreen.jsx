@@ -1,699 +1,355 @@
 import React, { useState } from 'react';
 import { useIncident } from '../context/IncidentContext';
 import { useAuth } from '../context/AuthContext';
-import { 
-  Shield, AlertOctagon, Lock, Database, Server, 
-  ExternalLink, CheckCircle, RefreshCw, Send, 
-  Eye, Zap, Filter, Flame, Crosshair, Grid, List, 
-  Search, ShieldAlert, Cloud, Key, Network, Cpu
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle, CircleAlert, Hexagon, Shield, X } from 'lucide-react';
+
+const filters = [
+  { id: 'all', label: 'All assets' },
+  { id: 'affected', label: 'Affected' },
+  { id: 'phi', label: 'PHI' },
+  { id: 'critical', label: 'Critical systems' }
+];
+
+function getAssetColor(asset, postureMode) {
+  if (postureMode === 'posture') {
+    if (asset.nessusRisk === 'Critical') return { fill: '#fef2f2', stroke: '#dc2626' };
+    if (asset.nessusRisk === 'High') return { fill: '#fff7ed', stroke: '#c2410c' };
+    if (asset.nessusRisk === 'Medium') return { fill: '#fffbeb', stroke: '#b7791f' };
+    return { fill: '#ffffff', stroke: '#cbd5e1' };
+  }
+
+  if (asset.status === 'encrypted' || asset.status === 'exfiltrated') {
+    return { fill: '#fef2f2', stroke: '#dc2626' };
+  }
+  if (asset.status === 'suspected') return { fill: '#fffaf0', stroke: '#d6ad4d' };
+  if (asset.status === 'recovered') return { fill: '#fffdf7', stroke: '#d9c078' };
+  return { fill: '#ffffff', stroke: '#cbd5e1' };
+}
+
+function wrapAssetName(name, maxLineLength = 11) {
+  const words = name.split(/[-\s]+/);
+  const lines = [];
+  let line = '';
+
+  words.forEach(word => {
+    if (line && `${line}-${word}`.length > maxLineLength) {
+      lines.push(`${line}-`);
+      line = word;
+    } else {
+      line = line ? `${line}-${word}` : word;
+    }
+  });
+
+  if (line) lines.push(line);
+  return lines.slice(0, 3);
+}
+
+function getHexPoints(cx, cy, radius) {
+  return Array.from({ length: 6 }, (_, index) => {
+    const angle = (Math.PI / 180) * (60 * index - 30);
+    return `${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`;
+  }).join(' ');
+}
+
+function formatClassification(value) {
+  return value === 'Crown Jewels' ? 'Critical system' : value;
+}
 
 export default function HiveScreen() {
   const { assets, updateAssetStatus, metrics, postureMode, setPostureMode } = useIncident();
   const { canWrite } = useAuth();
-
   const [selectedAssetId, setSelectedAssetId] = useState('actuary-db-01');
-  const [dataFilter, setDataFilter] = useState('ALL');
-  const [viewTab, setViewTab] = useState('grid'); // 'grid' (SVG Honeycomb) or 'library' (Asset Directory)
-  const [searchQuery, setSearchQuery] = useState('');
-  const [timelineNote, setTimelineNote] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [nextStatus, setNextStatus] = useState('');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const selectedAsset = assets.find(a => a.id === selectedAssetId) || assets[0];
+  const selectedAsset = assets.find(asset => asset.id === selectedAssetId) || assets[0];
+  const affectedCount = assets.filter(asset =>
+    ['encrypted', 'exfiltrated', 'suspected'].includes(asset.status)
+  ).length;
 
-  // Hexagon geometry math
-  const R = 48; // Hexagon radius
-  const hexWidth = Math.sqrt(3) * R; // ~83.1
-  const hexHeight = 2 * R; // 96
-  const vertDist = hexHeight * 0.75; // 72
-  const horizDist = hexWidth; // 83.1
-
-  function getHexPoints(cx, cy, r) {
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-      const angleDeg = 60 * i - 30; // Pointy-topped
-      const angleRad = (Math.PI / 180) * angleDeg;
-      points.push(`${cx + r * Math.cos(angleRad)},${cy + r * Math.sin(angleRad)}`);
-    }
-    return points.join(' ');
-  }
-
-  // Determine status styling for clean HCI
-  function getAssetColors(asset) {
-    if (postureMode === 'posture') {
-      // Color by Nessus Vulnerability Severity
-      switch (asset.nessusRisk) {
-        case 'Critical':
-          return { fill: '#fef2f2', stroke: '#ef4444', text: '#b91c1c', badge: 'bg-rose-50 text-rose-700 border-rose-200' };
-        case 'High':
-          return { fill: '#fff7ed', stroke: '#f97316', text: '#c2410c', badge: 'bg-orange-50 text-orange-700 border-orange-200' };
-        case 'Medium':
-          return { fill: '#fefce8', stroke: '#eab308', text: '#a16207', badge: 'bg-amber-50 text-amber-800 border-amber-200' };
-        default:
-          return { fill: '#f8fafc', stroke: '#94a3b8', text: '#475569', badge: 'bg-slate-100 text-slate-700 border-slate-200' };
-      }
-    }
-
-    // Default: Color by Incident Scope Status
-    switch (asset.status) {
-      case 'encrypted':
-        return { fill: '#fef2f2', stroke: '#ef4444', text: '#b91c1c', label: 'ENCRYPTED' };
-      case 'exfiltrated':
-        return { fill: '#faf5ff', stroke: '#a855f7', text: '#7e22ce', label: 'EXFILTRATED' };
-      case 'suspected':
-        return { fill: '#fffbeb', stroke: '#f59e0b', text: '#b45309', label: 'SUSPECTED' };
-      case 'recovered':
-        return { fill: '#ecfeff', stroke: '#06b6d4', text: '#0e7490', label: 'RECOVERED' };
-      case 'clean':
-      default:
-        return { fill: '#f8fafc', stroke: '#94a3b8', text: '#475569', label: 'CLEAN' };
-    }
-  }
-
-  async function handleStatusChange(newStatus) {
-    if (!canWrite || !selectedAsset) return;
-    setActionLoading(true);
-    try {
-      await updateAssetStatus(selectedAsset.id, newStatus, timelineNote);
-      setTimelineNote('');
-    } catch (err) {
-      alert('Failed to update asset: ' + err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  // Filter assets
-  const filteredAssets = assets.filter(a => {
-    // Quick filter chips
-    if (dataFilter === 'PHI' && a.dataClass !== 'PHI') return false;
-    if (dataFilter === 'CROWN' && a.dataClass !== 'Crown Jewels') return false;
-    if (dataFilter === 'COMPROMISED' && !(a.status === 'encrypted' || a.status === 'exfiltrated')) return false;
-    if (dataFilter === 'SHADOW' && !a.id.includes('shadow')) return false;
-
-    // Search query
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        a.name.toLowerCase().includes(q) ||
-        a.ip.toLowerCase().includes(q) ||
-        a.type.toLowerCase().includes(q) ||
-        a.dataClass.toLowerCase().includes(q) ||
-        a.status.toLowerCase().includes(q) ||
-        (a.cveList && a.cveList.some(c => c.toLowerCase().includes(q)))
-      );
-    }
+  const visibleAssets = assets.filter(asset => {
+    if (filter === 'affected') return ['encrypted', 'exfiltrated', 'suspected'].includes(asset.status);
+    if (filter === 'phi') return asset.dataClass === 'PHI';
+    if (filter === 'critical') return asset.dataClass === 'Crown Jewels';
     return true;
   });
 
-  // Group assets for library view
-  const assetCategories = [
-    { title: 'Databases & Storage', icon: Database, match: (a) => a.type.includes('Database') || a.type.includes('Storage') },
-    { title: 'Identity & Access Controls', icon: Key, match: (a) => a.type.includes('Domain') || a.type.includes('Bastion') || a.type.includes('Vault') },
-    { title: 'Perimeter & Network', icon: Network, match: (a) => a.type.includes('VPN') || a.type.includes('Gateway') || a.type.includes('Switch') },
-    { title: 'Analytics & Compute Systems', icon: Cpu, match: (a) => a.type.includes('Analytics') || a.type.includes('Server') || a.type.includes('Worker') || a.type.includes('OT') || a.type.includes('Sensor') }
-  ];
+  async function handleStatusChange(event) {
+    event.preventDefault();
+    if (!canWrite || !selectedAsset || !nextStatus) return;
+    setSaving(true);
+    try {
+      await updateAssetStatus(selectedAsset.id, nextStatus, note.trim());
+      setNextStatus('');
+      setNote('');
+    } catch (error) {
+      alert(`Could not update asset: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!selectedAsset) {
+    return (
+      <section className="flex-1 p-8 text-center text-slate-500">
+        <Hexagon className="mx-auto mb-3 h-8 w-8 text-amber-500" />
+        <h2 className="font-semibold text-slate-900">No assets available</h2>
+        <p className="mt-1 text-sm">Asset data could not be loaded.</p>
+      </section>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-84px)] overflow-hidden bg-slate-50">
-      
-      {/* Scope Metric Counter Strip - Clean White Bar with Yellow Brand Accents */}
-      <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center justify-between flex-wrap gap-3 shadow-xs">
-        
-        <div className="flex items-center space-x-3 text-xs">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 text-rose-800 border border-rose-200 font-bold font-mono">
-            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-            <span>{metrics.encrypted} ENCRYPTED</span>
+    <section className="screen-scroll flex-1 overflow-y-auto bg-slate-50 p-5 md:p-7">
+      <div className="mx-auto max-w-[1500px]">
+        <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Incident workspace</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">Asset map</h1>
           </div>
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-800 border border-purple-200 font-bold font-mono">
-            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-            <span>{metrics.exfiltrated} EXFILTRATED</span>
+          <div className="flex flex-wrap gap-6 text-sm">
+            <div><span className="text-slate-500">Total</span><strong className="ml-2 text-slate-900">{assets.length}</strong></div>
+            <div><span className="text-slate-500">Affected</span><strong className="ml-2 text-slate-900">{affectedCount}</strong></div>
+            <div><span className="text-slate-500">PHI affected</span><strong className="ml-2 text-amber-800">{metrics.phiCompromised}</strong></div>
           </div>
+        </header>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 border border-amber-300 font-bold font-mono">
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span>{metrics.phiCompromised} PHI EXPOSED</span>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1">
+            {filters.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setFilter(item.id)}
+                aria-pressed={filter === item.id}
+                className={`rounded-md px-3 py-1.5 text-sm transition ${
+                  filter === item.id ? 'bg-amber-100 font-medium text-amber-950' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold font-mono">
-            <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
-            <span>{metrics.recovered} RECOVERED</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-medium font-mono">
-            <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-            <span>{metrics.clean} CLEAN</span>
-          </div>
-        </div>
-
-        {/* View Mode Switches: Honeycomb Canvas vs. Asset Library Directory */}
-        <div className="flex items-center space-x-3">
-          <div className="bg-slate-100 p-1 rounded-lg border border-slate-200 flex items-center text-xs">
-            <button
-              onClick={() => setViewTab('grid')}
-              className={`px-3 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
-                viewTab === 'grid'
-                  ? 'bg-white text-slate-900 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Grid className="w-3.5 h-3.5 text-amber-600" />
-              <span>Honeycomb Grid</span>
-            </button>
-            <button
-              onClick={() => setViewTab('library')}
-              className={`px-3 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
-                viewTab === 'library'
-                  ? 'bg-white text-slate-900 font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <List className="w-3.5 h-3.5 text-amber-600" />
-              <span>Asset Library ({assets.length})</span>
-            </button>
-          </div>
-
-          {/* Posture Toggle */}
           <button
-            onClick={() => setPostureMode(postureMode === 'scope' ? 'posture' : 'scope')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition flex items-center gap-1.5 shadow-xs ${
-              postureMode === 'posture'
-                ? 'bg-amber-400 text-slate-950 font-bold border-amber-400'
-                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-            }`}
-            title="Toggle between Incident Status and Nessus Vulnerability Severity"
+            type="button"
+            onClick={() => setPostureMode(postureMode === 'posture' ? 'scope' : 'posture')}
+            aria-pressed={postureMode === 'posture'}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
-            <Shield className="w-3.5 h-3.5 text-slate-900" />
-            <span>{postureMode === 'posture' ? 'Posture: Nessus Vulns' : 'Posture: Incident Scope'}</span>
+            <Shield className="h-4 w-4 text-amber-700" />
+            {postureMode === 'posture' ? 'Show incident status' : 'Show scan risk'}
           </button>
         </div>
 
-      </div>
-
-      {/* Main Content Area: Grid/Library on Left + Inspection Drawer on Right */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left Side: Either Honeycomb Grid or Asset Library */}
-        <div className="flex-1 flex flex-col p-5 overflow-auto bg-slate-50 light-grid-bg">
-          
-          {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center space-x-1.5 bg-white p-1 rounded-lg border border-slate-200 shadow-xs">
-              <span className="text-[11px] font-mono text-slate-400 px-2 flex items-center gap-1">
-                <Filter className="w-3 h-3 text-amber-500" /> Filter:
-              </span>
-              {['ALL', 'PHI', 'CROWN', 'COMPROMISED', 'SHADOW'].map(f => (
-                <button
-                  key={f}
-                  onClick={() => setDataFilter(f)}
-                  className={`text-xs font-medium px-2.5 py-1 rounded-md transition ${
-                    dataFilter === f
-                      ? 'bg-amber-400 text-slate-950 font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  {f === 'CROWN' ? 'Crown Jewels' : f}
-                </button>
-              ))}
+        <div className="grid min-h-[560px] grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex min-w-0 flex-col p-3 md:p-5">
+            <div className="flex items-center justify-between px-1 pb-3 text-sm text-slate-500">
+              <span>{postureMode === 'posture' ? 'Vulnerability scan' : 'Incident status'}</span>
+              <span>Select a cell to view details</span>
             </div>
-
-            {viewTab === 'library' && (
-              <div className="relative w-72">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search assets, IPs, CVEs..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 shadow-xs"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* VIEW TAB 1: Honeycomb SVG Grid */}
-          {viewTab === 'grid' && (
-            <div className="flex-1 flex items-center justify-center min-h-[460px] bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-              <svg 
-                viewBox="0 0 680 440" 
-                className="w-full max-w-4xl h-auto select-none"
+            <div className="flex flex-1 items-center justify-center overflow-auto rounded-lg bg-slate-50/70 p-2 md:p-4">
+              <svg
+                viewBox="0 0 430 280"
+                role="img"
+                aria-label="Interactive honeycomb asset map"
+                className="h-auto w-full max-w-4xl select-none"
               >
-                {/* Render Hexagons */}
-                {assets.map(asset => {
-                  const isSelected = asset.id === selectedAssetId;
-                  const isFilteredOut = dataFilter !== 'ALL' && !filteredAssets.some(f => f.id === asset.id);
-                  
-                  // Hexagon row/col placement
-                  const xOffset = 90;
-                  const yOffset = 70;
-                  const cx = xOffset + asset.col * horizDist + (asset.row % 2 === 1 ? horizDist / 2 : 0);
-                  const cy = yOffset + asset.row * vertDist;
-
-                  const colors = getAssetColors(asset);
-                  const points = getHexPoints(cx, cy, R);
+                {visibleAssets.map(asset => {
+                  const isSelected = asset.id === selectedAsset.id;
+                  const radius = 43;
+                  const horizontal = Math.sqrt(3) * radius;
+                  const vertical = radius * 1.5;
+                  const cx = 60 + asset.col * horizontal + (asset.row % 2 ? horizontal / 2 : 0);
+                  const cy = 65 + asset.row * vertical;
+                  const colors = getAssetColor(asset, postureMode);
+                  const nameLines = wrapAssetName(asset.name);
+                  const state = postureMode === 'posture' ? `${asset.nessusRisk} risk` : asset.status;
 
                   return (
                     <g
                       key={asset.id}
+                      role="button"
+                      tabIndex="0"
+                      aria-label={`${asset.name}, ${state}`}
+                      aria-pressed={isSelected}
                       onClick={() => setSelectedAssetId(asset.id)}
-                      className="cursor-pointer transition-transform duration-200 group"
-                      opacity={isFilteredOut ? 0.25 : 1}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedAssetId(asset.id);
+                        }
+                      }}
+                      className={`asset-cell cursor-pointer outline-none ${asset.status === 'encrypted' || asset.status === 'exfiltrated' ? 'asset-cell-critical' : ''}`}
                     >
-                      {/* Hexagon Body */}
+                      <title>{`${asset.name} · ${state}`}</title>
                       <polygon
-                        points={points}
+                        points={getHexPoints(cx, cy, radius)}
                         fill={colors.fill}
-                        stroke={isSelected ? '#f59e0b' : colors.stroke}
-                        strokeWidth={isSelected ? '3.5' : '1.8'}
-                        className="transition-all duration-200"
-                      />
-
-                      {/* Data Class Pill Indicator at Top */}
-                      <rect
-                        x={cx - 24}
-                        y={cy - 29}
-                        width="48"
-                        height="11"
-                        rx="2.5"
-                        fill="#ffffff"
-                        stroke={colors.stroke}
-                        strokeWidth="0.8"
+                        stroke={isSelected ? '#92400e' : colors.stroke}
+                        strokeWidth={isSelected ? '3' : '1.5'}
+                        className="transition-colors"
                       />
                       <text
                         x={cx}
-                        y={cy - 21}
+                        y={cy - (nameLines.length > 1 ? 8 : 3)}
                         textAnchor="middle"
-                        fill={colors.text}
+                        fill="#1e293b"
+                        fontSize="7.5"
+                        fontFamily="system-ui, sans-serif"
+                        fontWeight={isSelected ? '700' : '600'}
+                      >
+                        {nameLines.map((line, index) => (
+                          <tspan key={`${line}-${index}`} x={cx} dy={index === 0 ? 0 : 9}>{line}</tspan>
+                        ))}
+                      </text>
+                      <text
+                        x={cx}
+                        y={cy + 21}
+                        textAnchor="middle"
+                        fill={asset.status === 'encrypted' || asset.status === 'exfiltrated' ? '#b91c1c' : '#64748b'}
                         fontSize="7"
-                        fontFamily="JetBrains Mono, monospace"
-                        fontWeight="bold"
+                        fontFamily="system-ui, sans-serif"
+                        fontWeight={asset.status === 'encrypted' || asset.status === 'exfiltrated' ? '700' : '500'}
                       >
-                        {asset.dataClass === 'Crown Jewels' ? '💎 CROWN' : asset.dataClass}
-                      </text>
-
-                      {/* Asset Name in Center - High contrast dark slate */}
-                      <text
-                        x={cx}
-                        y={cy - 5}
-                        textAnchor="middle"
-                        fill="#0f172a"
-                        fontSize="8"
-                        fontFamily="JetBrains Mono, monospace"
-                        fontWeight="700"
-                      >
-                        {asset.name}
-                      </text>
-
-                      {/* Asset IP */}
-                      <text
-                        x={cx}
-                        y={cy + 7}
-                        textAnchor="middle"
-                        fill="#64748b"
-                        fontSize="6.8"
-                        fontFamily="JetBrains Mono, monospace"
-                      >
-                        {asset.ip}
-                      </text>
-
-                      {/* Status Pill at Bottom */}
-                      <rect
-                        x={cx - 26}
-                        y={cy + 17}
-                        width="52"
-                        height="11"
-                        rx="2.5"
-                        fill="#ffffff"
-                        stroke={colors.stroke}
-                        strokeWidth="0.8"
-                      />
-                      <text
-                        x={cx}
-                        y={cy + 25}
-                        textAnchor="middle"
-                        fill={colors.text}
-                        fontSize="6.5"
-                        fontFamily="JetBrains Mono, monospace"
-                        fontWeight="bold"
-                      >
-                        {postureMode === 'posture' ? `${asset.nessusRisk?.toUpperCase()}` : asset.status.toUpperCase()}
+                        {state}
                       </text>
                     </g>
                   );
                 })}
               </svg>
             </div>
-          )}
-
-          {/* VIEW TAB 2: Asset Library Directory - Clean Structured HCI Catalog */}
-          {viewTab === 'library' && (
-            <div className="space-y-6">
-              {assetCategories.map(cat => {
-                const catAssets = filteredAssets.filter(cat.match);
-                if (catAssets.length === 0) return null;
-                const CatIcon = cat.icon;
-
-                return (
-                  <div key={cat.title} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                    
-                    {/* Category Header */}
-                    <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800">
-                          <CatIcon className="w-4 h-4" />
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-900">{cat.title}</h3>
-                        <span className="text-xs font-mono text-slate-500">({catAssets.length})</span>
-                      </div>
-                    </div>
-
-                    {/* Asset Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-100 text-[11px] font-mono uppercase text-slate-400">
-                            <th className="py-2.5 px-4 font-semibold">Asset Name &amp; Host</th>
-                            <th className="py-2.5 px-4 font-semibold">Type</th>
-                            <th className="py-2.5 px-4 font-semibold">IP &amp; VLAN</th>
-                            <th className="py-2.5 px-4 font-semibold">Data Class</th>
-                            <th className="py-2.5 px-4 font-semibold">Incident Status</th>
-                            <th className="py-2.5 px-4 font-semibold">Nessus Risk</th>
-                            <th className="py-2.5 px-4 font-semibold text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-sans">
-                          {catAssets.map(asset => {
-                            const isSelected = asset.id === selectedAssetId;
-
-                            return (
-                              <tr 
-                                key={asset.id}
-                                onClick={() => setSelectedAssetId(asset.id)}
-                                className={`cursor-pointer transition ${
-                                  isSelected ? 'bg-amber-50/70 font-medium' : 'hover:bg-slate-50'
-                                }`}
-                              >
-                                <td className="py-3 px-4">
-                                  <div className="font-mono font-bold text-slate-900">{asset.name}</div>
-                                  <div className="text-[11px] text-slate-400 truncate max-w-xs">{asset.description}</div>
-                                </td>
-
-                                <td className="py-3 px-4 text-slate-600">
-                                  {asset.type}
-                                </td>
-
-                                <td className="py-3 px-4 font-mono text-slate-600">
-                                  <div>{asset.ip}</div>
-                                  <div className="text-[10px] text-slate-400">{asset.vlan}</div>
-                                </td>
-
-                                <td className="py-3 px-4">
-                                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                                    asset.dataClass === 'PHI' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                    asset.dataClass === 'Crown Jewels' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                                    asset.dataClass === 'PII' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                    'bg-slate-100 text-slate-700 border-slate-200'
-                                  }`}>
-                                    {asset.dataClass}
-                                  </span>
-                                </td>
-
-                                <td className="py-3 px-4">
-                                  <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${
-                                    asset.status === 'encrypted' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                    asset.status === 'exfiltrated' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                    asset.status === 'suspected' ? 'bg-amber-50 text-amber-800 border-amber-200' :
-                                    asset.status === 'recovered' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' :
-                                    'bg-slate-100 text-slate-700 border-slate-200'
-                                  }`}>
-                                    {asset.status}
-                                  </span>
-                                </td>
-
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                                      asset.nessusRisk === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                      asset.nessusRisk === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                      'bg-slate-100 text-slate-600 border-slate-200'
-                                    }`}>
-                                      {asset.nessusRisk}
-                                    </span>
-                                    {asset.cveList?.length > 0 && (
-                                      <span className="text-[10px] font-mono text-slate-400">
-                                        ({asset.cveList.length} CVEs)
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                <td className="py-3 px-4 text-right">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedAssetId(asset.id);
-                                    }}
-                                    className="px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md border border-amber-200 transition"
-                                  >
-                                    Inspect
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Scope Legend */}
-          <div className="mt-4 bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs text-slate-600 shadow-xs">
-            <div className="flex items-center space-x-4">
-              <span className="font-mono text-[11px] text-slate-400 font-bold uppercase">Legend:</span>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                <span>Clean</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                <span>Suspected</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                <span>Encrypted (Ransom)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                <span>Exfiltrated (Stolen)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
-                <span>Recovered</span>
-              </div>
-            </div>
-
-            <div className="text-[11px] font-mono text-amber-800 font-semibold">
-              Every status edit automatically seals a SHA-256 block into the timeline
+            <div className="flex flex-wrap gap-x-5 gap-y-2 px-1 pt-3 text-xs text-slate-600">
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full border border-slate-300 bg-white" />No known impact</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full border border-amber-500 bg-amber-100" />Under review</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full border border-red-600 bg-red-100" />Critical impact</span>
+              <span className="inline-flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full border border-amber-800 bg-white" />Recovered</span>
             </div>
           </div>
 
-        </div>
-
-        {/* Right Side Inspection Drawer - Clean White HCI Card */}
-        <div className="w-96 bg-white border-l border-slate-200 flex flex-col justify-between overflow-y-auto shadow-sm">
-          
-          <div className="p-5 space-y-5">
-            
-            {/* Header of Drawer */}
-            <div className="border-b border-slate-100 pb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
-                  {selectedAsset.type}
-                </span>
-                <span className={`text-[11px] font-mono uppercase px-2.5 py-0.5 rounded font-bold border ${
-                  selectedAsset.status === 'encrypted' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                  selectedAsset.status === 'exfiltrated' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                  selectedAsset.status === 'suspected' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                  selectedAsset.status === 'recovered' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' :
-                  'bg-slate-100 text-slate-700 border-slate-200'
-                }`}>
-                  {selectedAsset.status.toUpperCase()}
-                </span>
+          <aside className="border-t border-slate-200 p-5 lg:border-l lg:border-t-0">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs text-slate-500">{selectedAsset.type}</p>
+                <h2 className="mt-1 break-words text-lg font-semibold text-slate-950">{selectedAsset.name}</h2>
               </div>
-
-              <h2 className="text-lg font-bold text-slate-900 font-mono tracking-tight">
-                {selectedAsset.name}
-              </h2>
-              <div className="text-xs text-slate-500 font-mono mt-0.5">
-                {selectedAsset.ip} · {selectedAsset.vlan}
-              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAssetId(assets[0]?.id)}
+                aria-label="Close asset details"
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            {/* Data Classification Impact Callout */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-amber-600" />
-                  Data Classification
-                </span>
-                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
-                  selectedAsset.dataClass === 'PHI' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                  selectedAsset.dataClass === 'Crown Jewels' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                  selectedAsset.dataClass === 'PII' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                  'bg-slate-100 text-slate-700 border-slate-200'
-                }`}>
-                  {selectedAsset.dataClass}
-                </span>
+            {['Critical', 'High', 'Medium'].includes(selectedAsset.nessusRisk) && (
+              <div className={`mb-4 rounded-lg border p-3 ${
+                selectedAsset.nessusRisk === 'Critical'
+                  ? 'border-red-200 bg-red-50 text-red-900'
+                  : 'border-amber-200 bg-amber-50 text-amber-950'
+              }`}>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {selectedAsset.nessusRisk} vulnerability risk
+                    </p>
+                    <p className="mt-1 text-xs leading-5">
+                      {selectedAsset.nessusRisk === 'Critical'
+                        ? 'Immediate review recommended.'
+                        : selectedAsset.nessusRisk === 'High'
+                          ? 'Prioritize investigation and remediation.'
+                          : 'Include in the remediation plan.'}
+                    </p>
+                  </div>
+                </div>
               </div>
+            )}
 
-              {selectedAsset.dataClass === 'PHI' && (
-                <div className="text-[11px] text-rose-900 bg-rose-50 p-2.5 rounded-lg border border-rose-200 leading-relaxed">
-                  ⚠️ <strong className="font-semibold">Regulatory Impact (HIPAA):</strong> Contains Health Actuary Risk Tables. Under 45 CFR § 164.404, exfiltration triggers a mandatory <strong>60-day notification mandate</strong> to HHS OCR.
-                </div>
-              )}
-
-              {selectedAsset.dataClass === 'Crown Jewels' && (
-                <div className="text-[11px] text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-300 leading-relaxed">
-                  💎 <strong className="font-semibold">Crown Jewels:</strong> Core enterprise domain infrastructure. Compromise allows unauthorized DCSync replication.
-                </div>
-              )}
-
-              {selectedAsset.id.includes('shadow') && (
-                <div className="text-[11px] text-purple-900 bg-purple-50 p-2.5 rounded-lg border border-purple-200 leading-relaxed">
-                  ☁️ <strong className="font-semibold">Shadow IT:</strong> Unmanaged bucket spun up without CISO review. Primary staging egress conduit.
-                </div>
-              )}
-            </div>
-
-            {/* Asset Description & Forensic Note */}
-            <div>
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-1.5">Forensic Context</div>
-              <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono">
-                {selectedAsset.description}
-              </p>
-            </div>
-
-            {/* Nessus Correlation */}
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-amber-600" />
-                  Nessus Vulnerability Risk
-                </span>
-                <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold border ${
-                  selectedAsset.nessusRisk === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                  selectedAsset.nessusRisk === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                  'bg-slate-100 text-slate-700 border-slate-200'
-                }`}>
-                  {selectedAsset.nessusRisk} Risk
-                </span>
+            <dl className="space-y-3 border-y border-slate-100 py-4 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Status</dt>
+                <dd className="font-medium capitalize text-slate-900">{selectedAsset.status}</dd>
               </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Data</dt>
+                <dd className="text-right font-medium text-slate-900">{formatClassification(selectedAsset.dataClass)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Address</dt>
+                <dd className="font-mono text-xs text-slate-700">{selectedAsset.ip}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Network</dt>
+                <dd className="text-right text-xs text-slate-700">{selectedAsset.vlan}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">Scan risk</dt>
+                <dd className="font-medium text-slate-900">{selectedAsset.nessusRisk}</dd>
+              </div>
+            </dl>
 
-              {selectedAsset.cveList?.length > 0 ? (
-                <div className="space-y-1">
+            <p className="py-4 text-sm leading-6 text-slate-600">{selectedAsset.description}</p>
+            {selectedAsset.cveList?.length > 0 && (
+              <div className="mb-4 rounded-lg bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-medium text-slate-600">Related findings</p>
+                <div className="flex flex-wrap gap-2">
                   {selectedAsset.cveList.map(cve => (
-                    <div key={cve} className="text-xs font-mono text-rose-700 bg-white px-2 py-1 rounded border border-rose-200 flex items-center justify-between shadow-xs">
-                      <span>{cve}</span>
-                      <span className="text-[9px] uppercase tracking-wider font-bold text-rose-600">Weaponized</span>
-                    </div>
+                    <span key={cve} className="rounded bg-white px-2 py-1 font-mono text-xs text-slate-700">{cve}</span>
                   ))}
                 </div>
-              ) : (
-                <div className="text-[11px] text-slate-500 font-mono">No known unpatched critical CVEs recorded.</div>
-              )}
-            </div>
-
-            {/* Big Status Action Buttons - Clean HCI Buttons */}
-            <div>
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">
-                Update Asset Status
               </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                <button
-                  onClick={() => handleStatusChange('encrypted')}
-                  disabled={!canWrite || actionLoading}
-                  className="py-2.5 px-3 rounded-lg bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 font-bold transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
+            {canWrite && (
+              <form onSubmit={handleStatusChange} className="space-y-3 border-t border-slate-100 pt-4">
+                <label className="block text-sm font-medium text-slate-800" htmlFor="asset-status">Update status</label>
+                <select
+                  id="asset-status"
+                  value={nextStatus}
+                  onChange={event => setNextStatus(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-100"
                 >
-                  <Lock className="w-3.5 h-3.5 text-rose-600" />
-                  Encrypted
+                  <option value="">Choose a status</option>
+                  <option value="clean">No known impact</option>
+                  <option value="suspected">Under review</option>
+                  <option value="encrypted">Encrypted</option>
+                  <option value="exfiltrated">Data taken</option>
+                  <option value="recovered">Recovered</option>
+                </select>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={event => setNote(event.target.value)}
+                  placeholder="Optional note for the log"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                />
+                <button
+                  type="submit"
+                  disabled={!nextStatus || saving}
+                  className="w-full rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save status'}
                 </button>
+              </form>
+            )}
 
-                <button
-                  onClick={() => handleStatusChange('exfiltrated')}
-                  disabled={!canWrite || actionLoading}
-                  className="py-2.5 px-3 rounded-lg bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 font-bold transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-purple-600" />
-                  Exfiltrated
-                </button>
-
-                <button
-                  onClick={() => handleStatusChange('suspected')}
-                  disabled={!canWrite || actionLoading}
-                  className="py-2 px-3 rounded-lg bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 font-medium transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
-                >
-                  <AlertOctagon className="w-3.5 h-3.5 text-amber-600" />
-                  Suspected
-                </button>
-
-                <button
-                  onClick={() => handleStatusChange('recovered')}
-                  disabled={!canWrite || actionLoading}
-                  className="py-2 px-3 rounded-lg bg-white hover:bg-cyan-50 text-cyan-800 border border-cyan-300 font-medium transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 text-cyan-600" />
-                  Recovered
-                </button>
+            {!canWrite && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                <CircleAlert className="h-4 w-4 shrink-0" />
+                Read-only access
               </div>
-
-              <button
-                onClick={() => handleStatusChange('clean')}
-                disabled={!canWrite || actionLoading}
-                className="w-full mt-2 py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                Declare Clean &amp; Restored
-              </button>
-
-              {!canWrite && (
-                <div className="mt-2 text-[11px] text-slate-400 text-center font-mono">
-                  [Read-Only Viewer: Upgrade persona to edit scope]
-                </div>
-              )}
-            </div>
-
-            {/* Optional note to attach to hash chain */}
-            <div>
-              <label className="block text-[11px] text-slate-500 mb-1 font-mono">
-                Forensic Note (Sealed to Hash Chain):
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Memory snapshot preserved"
-                value={timelineNote}
-                onChange={e => setTimelineNote(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 font-mono shadow-xs"
-              />
-            </div>
-
-          </div>
-
-          <div className="p-4 bg-slate-50 border-t border-slate-200 text-[11px] font-mono text-slate-500 flex items-center justify-between">
-            <span>AUDIT INTEGRITY:</span>
-            <span className="text-emerald-700 font-semibold">SHA-256 Chained</span>
-          </div>
-
+            )}
+          </aside>
         </div>
 
+        <p className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+          <CheckCircle className="h-3.5 w-3.5 text-amber-700" />
+          Asset changes are recorded in the incident timeline.
+        </p>
       </div>
-
-    </div>
+    </section>
   );
 }

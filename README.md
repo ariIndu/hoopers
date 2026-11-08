@@ -1,266 +1,128 @@
-# BEESWAX LITE // Air-Gapped Cyber Incident Command Center
-> **HackUTD 2026 // Winstead PC Cyber Incident Response Challenge**  
-> *Designed for high-stress crisis command during active, hostile network compromise.*
+# Beeswax
 
-[![Security: Air-Gapped Standalone](https://img.shields.io/badge/Security-Air--Gapped%20%2F%20Isolated-emerald)](#one-page-threat-model)
-[![Integrity: SHA-256 Hash Chain](https://img.shields.io/badge/Integrity-Tamper--Evident%20SHA--256-amber)](#tamper-evident-hash-chain-the-10-second-demo)
-[![Regulatory: HIPAA PHI / 45 CFR § 164.404](https://img.shields.io/badge/Compliance-HIPAA%20PHI%2060--Day-purple)](#ciso-judgement-framework--board-brief)
-[![Stack: React + Node + ws](https://img.shields.io/badge/Stack-React%20%2B%20Node%20%2B%20ws-blue)](#architecture--stack)
+Beeswax is a prototype incident-response workspace built for the Winstead PC cyber incident response challenge. It brings asset scope, incident activity, responder chat, vulnerability findings, and a board-ready report into one compact interface.
 
----
+## Winstead PC challenge brief
 
-## Executive Summary
+The dashboard is designed as a cyber incident-response command center for use during and after an incident. The experience favors a short set of clear tools, neutral surfaces with restrained yellow accents, visible critical alerts, and a persistent honeycomb asset map so responders can orient themselves quickly.
 
-When a major enterprise suffers a SEV-1 cyber incident, the standard assumption must be that **the attacker already owns the internal network, monitors Active Directory, and listens to corporate Slack, Teams, and email**. Incident responders and executive leadership cannot coordinate safely inside the compromised environment.
+| Challenge requirement | How the prototype addresses it |
+| --- | --- |
+| Operate independently when internal systems may be compromised | The app can run as a separate Node.js service and uses local API/WebSocket connections. The interface warns responders not to use corporate email, Slack, or Teams. A separate service is not automatically an air gap; deployment isolation must be configured and verified. |
+| Administrative access control | Admins can manage users; Admin and Responder roles can update incident information and assets. The demo has seeded personas for the CISO, responder, legal viewer, and platform administrator. |
+| Incident documentation and real-time status | Incident details are editable, and the shared activity log receives incident and asset updates. Connected browsers synchronize updates over WebSockets. The timeline is independently checked in the browser against a SHA-256 hash chain. |
+| Define incident scope and compromised data status | The honeycomb presents the affected systems and their status. Asset details include data classification and scan risk; status changes are reflected in activity. The board report summarizes affected systems and exposure categories. |
+| Real-time communications | The team chat sends and receives messages through the local WebSocket-backed service. |
+| Ease of use under pressure | Navigation uses plain-language tool names; the asset map keeps a small set of filters; chat follows a familiar message/feed layout; the board view is organized as an executive report. |
+| Creativity beyond the core brief | Nessus XML ingestion, scan findings on assets, downloadable board reporting, and a tamper-evident audit-chain demonstration extend the required workflows. |
 
-**Beeswax** is an independently secure, standalone "command center" built to operate on isolated, hardened infrastructure during and after an incident. It delivers:
-1. **Interactive Scope & Blast Radius Visualizer (Hive):** Pure SVG honeycomb lattice tracking compromised, encrypted, exfiltrated, and clean assets, with explicit tagging for **PHI (Protected Health Information)**, **PII**, and **Crown Jewels**.
-2. **Tamper-Evident SHA-256 Audit Chain (Incident Documentation):** Mathematically sealed event ledger where any backend database alteration immediately triggers a visible cryptographic mismatch in the browser.
-3. **Out-of-Band Tactical Communications (Chat):** Direct WebSocket communication channel completely isolated from corporate mail servers.
-4. **Vulnerability Correlation & Ingestion (Nessus Scanner):** Ingests `.nessus` XML audit files, parses CVEs, and overlays vulnerability severity directly onto the asset honeycomb.
-5. **CISO Executive Board Brief:** Modeled directly after CISO leadership doctrine: *"What did you see? Why is it important? What do you want me to do about it?"*, paired with an anti-FUD (*Fear, Uncertainty, Doubt*) ledger.
+The board report follows the requested leadership questions—**What happened? Why does it matter? What should leadership do?**—and includes incident details, exposure, financial impact, security failures, accountability evidence, detection/response, risk assessment, recovery, and executive decisions. Where this prototype has no verified source data (such as downtime cost, remediation budget, Monte Carlo loss results, or a dated pre-incident patch decision), it says so rather than inventing a value. The Beeswax header opens an incident register where Admins and Responders can create and review incident summary records.
 
----
+**Incident scope:** The register starts with one seeded incident. Newly added records are tracked in the register, while the asset map, chat, decisions, and activity log remain scoped to the original current case. Register records are held in server memory and are lost when the server restarts; this is not yet a persistent, fully separated multi-incident case-management system.
 
-## One-Page Threat Model
+## What it does
 
-```
-       HOSTILE CORPORATE NETWORK (UNTRUSTED)
-  ┌──────────────────────────────────────────────────────────────┐
-  │ [Adversary Infiltrator / ALPHV Ransomware Operator]          │
-  │   ├── Active Directory DC (DCSync attempted)                 │
-  │   ├── Corporate Exchange & Slack (Compromised & Eavesdropped)│
-  │   └── Perimeter FortiOS Gateway (CVE-2024-21762 Exploit)    │
-  └──────────────────────────────────────────────────────────────┘
-                                X  (NO TRUST / AIR-GAPPED)
-  ┌──────────────────────────────────────────────────────────────┐
-  │             BEESWAX STANDALONE HARDENED NODE                 │
-  │  ┌────────────────────────────────────────────────────────┐  │
-  │  │ Zero External CDNs  │  Local Web Crypto SHA-256 Engine │  │
-  │  │ Local WebSockets    │  bcrypt Enforced RBAC Directory  │  │
-  │  │ Memory-Store State  │  fast-xml-parser Nessus Ingestion│  │
-  │  └────────────────────────────────────────────────────────┘  │
-  └──────────────────────────────────────────────────────────────┘
-```
+- **Asset map:** Interactive SVG honeycomb showing 12 representative systems, their status, data classification, and Nessus risk. Changes to asset status are added to the incident activity log.
+- **Incident log:** Editable incident summary and response status, a live activity timeline, and a demonstrable SHA-256 hash-chain integrity check.
+- **Team chat:** Live responder messages over a WebSocket connection. The interface reminds responders not to use corporate email, Slack, or Teams.
+- **Vulnerability scan:** Upload a Nessus XML file or load the bundled sample. Parsed findings can be correlated with known asset IP addresses and host names.
+- **Board report:** Current incident details, asset counts, decisions, and recent activity can be printed or downloaded as a standalone HTML report.
+- **Incident register:** Admins and Responders can add and review incident summary records from the Beeswax header; the current case dashboard remains unchanged.
+- **User roles:** Demo Admin, Responder, and Viewer roles control which actions are available in the interface and API.
 
-### Threat Assumptions
-1. **Hostile Lan & Tapped Communications:** Corporate Microsoft 365, Teams, Exchange, and Slack are monitored by the adversary. *Mitigation:* Beeswax operates as a standalone server over dedicated tactical links with a hard prohibition on corporate communication channels.
-2. **Adversary Log Tampering / Evidence Destruction:** Attackers attempt to modify SIEM logs, timeline entries, or SQL databases to delete traces of unauthorized 42GB PHI exfiltration. *Mitigation:* Every action is cryptographically sealed into a linear SHA-256 hash chain (`hash = SHA256(seq | ts | actor | text | prevHash)`). The client browser independently verifies the mathematical integrity of every block.
-3. **Stress & Cognitive Overload:** Responders entering during a crisis do not recall complex interfaces. *Mitigation:* Zero setup friction. Color-coded hex status, live counters, fixed-choice board action checklists, and instant persona switching.
-4. **Zero Cloud Dependencies:** If the adversary cuts corporate WAN access, external CDNs (Google Fonts, unpkg, cdnjs) fail. *Mitigation:* Self-contained single-process bundle; zero external requests required for runtime operation.
+### Demo accounts
 
----
+| Persona | Username | Password |
+| --- | --- | --- |
+| Alex Morgan (CISO) | `alex.morgan` | `ciso2026` |
+| Sarah Chen (Responder) | `sarah.chen` | `respond2026` |
+| Winstead Legal Team (Viewer) | `legal.counsel` | `legal2026` |
+| Command Ops Admin | `admin` | `admin123` |
 
-## Prototype Scope: Real vs. Production Pitch
+These are demonstration credentials only. Do not reuse them outside a local demo.
 
-| Component | Real in Prototype | Described Production Plan |
-| :--- | :--- | :--- |
-| **Audit Log Integrity** | Real SHA-256 cryptographic hash chain running in browser `crypto.subtle`; detects in-memory database tampering. | Hardware TPM / HSM enclave attestation; RFC 3161 cryptographic timestamping. |
-| **Access Control (RBAC)** | Role-based permission enforcement on all write routes (`Admin`, `Responder`, `Viewer`); bcrypt credential hashing. | Hardware WebAuthn / FIDO2 security keys; two-person rule approval for destructive containment. |
-| **Network Isolation** | Self-contained single-process Express + WebSocket server serving built React assets with zero external CDN calls. | Hardened Linux ISO deployed onto an air-gapped optical-diode network appliance. |
-| **Nessus Ingestion** | Real-time XML parsing with `fast-xml-parser`, CVE extraction, and automatic correlation to Hive asset nodes. | Automated Tenable.io API sync with continuous attack-surface discovery. |
-| **CISO Board Brief** | Live data counter integration, HIPAA 60-day OCR regulatory calculations, and interactive board decision checklist. | One-click SEC Form 8-K cyber incident draft generator and automated legal privilege stamping. |
+## Technology stack
 
----
+| Layer | Technologies | Responsibility |
+| --- | --- | --- |
+| Web client | React 18, JavaScript, Vite 5 | Screens, interaction, and local development server |
+| UI and icons | Tailwind CSS 3, Lucide React | Responsive layout, design tokens/utilities, and bundled SVG icons |
+| Client state | React Context API | Authentication, incident data, WebSocket events, and screen state |
+| HTTP API | Node.js, Express 4 | Authentication, incident and asset operations, uploads, and report data |
+| Live updates | `ws` WebSocket server | Broadcast incident, asset, chat, scan, and decision updates |
+| Scan ingestion | `fast-xml-parser`, `multer` | Accept Nessus XML and parse host/vulnerability findings |
+| Password hashing | `bcryptjs` | Hash seeded demo-user passwords |
+| Audit integrity | Browser Web Crypto API and Node.js `crypto` | Compute and verify the timeline's linked SHA-256 hashes |
+| Runtime data | In-memory JavaScript objects and maps | Prototype users, assets, incident, messages, decisions, and timeline |
 
-## The 5 Core Screens
+No separate database or UI component framework is used. Lucide icons are bundled with the client. The client uses system fonts and does not need a third-party font CDN.
 
-### 1. Hive (Asset Scope & Blast Radius)
-- Interactive pure SVG hexagonal honeycomb grid representing enterprise infrastructure.
-- 19 seeded assets including Domain Controllers, DMZ VPN Concentrator, Billing SQL Clusters, Immutable Backup NAS, and the **Health Actuary Risk Database** (`actuary-db-01`).
-- Status colors:
-  - 🟢 **Clean** (Verified uncompromised)
-  - 🟡 **Suspected** (Anomalous telemetry detected)
-  - 🔴 **Encrypted** (Ransomware payload locked)
-  - 🟣 **Exfiltrated** (Unauthorized data egress confirmed)
-  - 🔵 **Recovered** (Restored from immutable backup and validated)
-- Click any hexagon to open the side inspection drawer with data classification tags (**PHI**, **PII**, **Crown Jewels**, **Client Data**, **Shadow IT**), Nessus weaponized CVE correlation, and immediate status change buttons that automatically seal an audit block into the hash chain.
-- Live metric counter strip: *"3 Encrypted · 2 Exfiltrated · 3 PHI Exposed · 2 Recovered · 8 Clean"*.
-- **Posture Toggle:** 1-click switch between **Incident Blast Radius** and **Nessus Vulnerability Posture** (re-coloring the entire grid by Nessus vulnerability risk).
+## How it is built
 
-### 2. Incident (Documentation & Live Hash-Chained Timeline)
-- Single formal incident form complying with NIST SP 800-61 and SANS IR standards:
-  - Incident Title, Severity Rating (Critical SEV-1 to Low SEV-4), Discovery Timestamp, Attack Vector dropdown, NIST Phase stepper (Detect ➔ Contain ➔ Eradicate ➔ Recover), Network Containment State, Executive Summary.
-- Live timeline feed synchronizing in real time via WebSockets.
-- Filter timeline by action type: `ALL`, `ALERT`, `COMMAND`, `RANSOM`.
-- Append live forensic observations and containment orders with instant SHA-256 block sealing.
+The application has four main runtime layers:
 
-### 3. Tamper-Evident Hash Chain (The 10-Second Demo Showstopper)
-- Prominent header badge: `🔒 INTEGRITY VERIFIED: 8/8 Blocks (SHA-256)`.
-- **The "Tamper Demo" Button:** Clicking this sends a simulated attacker request to `/api/tamper`, which modifies entry #4 (altering the record of 42GB PHI exfiltration to claim routine maintenance).
-- **The Result:** The browser's Web Crypto engine immediately detects that `SHA256(Block #4 payload)` does not match the stored cryptographic hash!
-- The badge instantly turns into a pulsing crimson alert:  
-  `⚠️ TAMPER DETECTED AT BLOCK #4!`
-- Clicking "Inspect Full Cryptographic Hash Ledger" opens a block-by-block ledger showing the expected SHA-256 hash vs. the stored hash, mathematically proving evidence manipulation.
-- Clicking **"Restore Chain"** restores authentic records and returns the indicator to verified green.
+1. **Presentation layer — `client/src/screens` and `client/src/components`:** `App.jsx` composes the navbar, tool navigation, screens, and user/integrity dialogs. Each screen reads shared data from the React contexts and renders the relevant user workflow.
+2. **Client state and transport layer — `client/src/context`:** `AuthContext` manages the logged-in demo persona and bearer token. `IncidentContext` loads initial data from the API, exposes actions for mutations, and keeps the UI synchronized with WebSocket broadcasts.
+3. **Service/API layer — `server/server.js`:** Express routes serve incident data, assets, timeline entries, chat, board decisions, and scan operations. Role middleware protects write operations. The WebSocket server broadcasts successful updates to connected clients.
+4. **Integrity and ingestion layer:** Timeline entries include sequence, timestamp, actor, text, previous hash, and current hash. The browser independently verifies the chain with Web Crypto. The Nessus upload route parses XML, extracts host and vulnerability details, and correlates matching hosts with the asset list.
 
-### 4. Chat (Out-of-Band Tactical Communications)
-- Air-gapped room with persistent warning banner:  
-  *"Out-of-band channel. Do not use corporate email or Slack. Corporate networks compromised."*
-- Real-time WebSocket delivery between responders and legal counsel.
-- Tactical Canned Preset buttons for high-speed response:
-  - *"VLAN 40 segment isolation confirmed complete."*
-  - *"Forensic volatile RAM image dumped from AD-DC-01."*
-  - *"Winstead PC external breach counsel retained under privilege."*
-  - *"Under HIPAA 45 CFR § 164.404, we have a 60-day notification clock on PHI."*
+### Typical data flow
 
-### 5. Nessus Scanner & CISO Board Brief
-- **Nessus Ingestion:** Upload any `.nessus` XML file or click **"Load Sample Incident Scan"** (pre-bundled enterprise audit with FortiOS CVE-2024-21762, PostgreSQL CVE-2023-39417, Zerologon CVE-2020-1472, and Log4Shell CVE-2021-44228).
-- Severity distribution bar chart (Critical, High, Medium, Low).
-- Searchable host breakdown table with weaponized CVE tags and CVSS scores.
-- **CISO Board Brief:** Tailored specifically to CISO leadership principles:
-  - **What Did We See?** Live counts of encrypted systems, exfiltrated actuary tables, and untouched immutable backups.
-  - **Why Does It Matter?** HIPAA 45 CFR § 164.404 regulatory exposure analysis (60-day mandatory notification to HHS OCR and affected individuals), actuary model IP risk, business interruption estimates (~$140,000/day), and 45 BTC ransomware demand refusal.
-  - **What Do We Need From You?** Interactive decision checklist for Board and CIO approval:
-    - [x] Retain External Forensics Firm (Mandiant)
-    - [x] Retain External Breach Counsel under Privilege (Winstead PC)
-    - [x] Formal Notice to Cyber Insurance Carrier
-    - [x] Authorize Physical Network Disconnect of VLAN 40
-    - [x] Refuse 45 BTC Ransom Demand (Follow FBI / CISA guidance)
-  - **Confirmed vs. Unknown (The Anti-FUD Ledger):** Separates forensically verified facts from speculation to eliminate Fear, Uncertainty, and Doubt during board presentations.
-  - **1-Click Export:** "Export Brief (PDF)" and "Copy Markdown" buttons for instant executive distribution.
-
----
-
-## CISO Judgement Framework & Defense Matrix
-
-When a breach occurs, the Board of Directors and CIO evaluate: *"Did the CISO know the risk was there? Should the CISO be fired?"*  
-Beeswax encodes this defense matrix directly into the platform:
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   THE CISO JUDGEMENT FRAMEWORK                         │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. PREVENTIVE POSTURE                                                  │
-│    • CIS Critical Security Controls v8 audited.                        │
-│    • Perimeter Nessus scan identified CVE-2024-21762 9 days prior.     │
-│    • Patch had been approved and queued in monthly change window.      │
-├────────────────────────────────────────────────────────────────────────┤
-│ 2. DETECTION & RESPONSE RESILIENCE                                     │
-│    • Adversary dwell time contained under 4.5 hours.                   │
-│    • Immediate air-gap protocol isolated lateral movement.            │
-│    • Offline immutable ZFS backup repository (NAS-AIRGAP) kept safe.   │
-├────────────────────────────────────────────────────────────────────────┤
-│ 3. CROWN JEWELS VS. SHADOW IT PROBLEM                                  │
-│    • Crown Jewels (Health Actuary Risk Tables) protected in VLAN 40.   │
-│    • Exfiltration staging conduit was an unauthorized Shadow IT        │
-│      MinIO S3 bucket deployed by developers without CISO clearance.    │
-├────────────────────────────────────────────────────────────────────────┤
-│ 4. PURPLE TEAMING & CONTINUOUS SIMULATION                              │
-│    • Purple team exercises previously validated AD credential guards.  │
-│    • Potomac / Myriddian Workbench Monte Carlo attack simulations      │
-│      enabled rapid triage of the adversary's playbook.                 │
-└────────────────────────────────────────────────────────────────────────┘
+```text
+React screen
+   ├── fetch('/api/...') ──> Express route ──> in-memory state
+   │                                      ├── append hash-linked activity
+   │                                      └── broadcast update over WebSocket
+   └── WebSocket event <──────────────────────────────┘
+          └── IncidentContext updates React state
 ```
 
----
+For Nessus imports, the client uploads the selected file as multipart form data. The server parses the XML, stores the parsed summary in process memory, matches findings to assets where possible, and broadcasts refreshed scan and asset data.
 
-## Role-Based Access Control (RBAC)
+## Repository layout
 
-The system includes pre-configured personas for testing and live demonstration:
-
-| Persona | Role | Credentials | Permissions |
-| :--- | :--- | :--- | :--- |
-| **Chris White** | `Admin` | `chris.white` / `ciso2026` | CISO authority, board decisions, user enrollment, full write |
-| **Sarah Chen** | `Responder` | `sarah.chen` / `respond2026` | Lead DFIR, asset quarantine, timeline log authoring, tactical chat |
-| **Winstead Legal Team** | `Viewer` | `legal.counsel` / `legal2026` | Read-only access to preserve legal privilege & observe timeline |
-| **Command Admin** | `Admin` | `admin` / `admin123` | Platform administration & user directory management |
-
-*Quick Persona Switcher:* Responders can switch between these personas in 1 click via the user avatar dropdown in the upper right.
-
----
-
-## Architecture & Technology Stack
-
-Beeswax is deliberately built with minimal dependencies to ensure air-gapped portability:
-
-```
-beeswax/
-├── client/                     # React + Vite Frontend
-│   ├── src/
-│   │   ├── components/         # Navbar, Sidebar, UsersModal, TamperModal
-│   │   ├── context/            # AuthContext, IncidentContext (WebSocket sync)
-│   │   ├── screens/            # Hive, Incident, Chat, Nessus, BoardBrief
-│   │   ├── utils/crypto.js     # Browser Web Crypto SHA-256 Hash Chain Engine
-│   │   ├── App.jsx             # Shell & Router
-│   │   └── main.jsx
-│   ├── index.html
-│   └── tailwind.config.js      # Cyber SOC Dark Theme
-├── server/
-│   ├── server.js               # Express + WebSocket + bcryptjs + fast-xml-parser
-│   └── package.json
-├── sample-incident-scan.nessus  # Bundled sample enterprise Nessus v2 XML audit
-├── start-dev.js                # Concurrent launcher
-└── package.json
+```text
+client/
+  index.html
+  src/
+    components/       # Navbar, sidebar, user dialog, integrity dialog
+    context/          # Authentication and incident state/actions
+    screens/          # Asset map, incident log, chat, scan, board report
+    utils/crypto.js   # Browser-side timeline verification
+  tailwind.config.js
+server/
+  server.js           # Express API, WebSocket server, seed data, scan parsing
+  package.json
+sample-incident-scan.nessus
+start-dev.js           # Starts the API and Vite development server
+package.json           # Convenience scripts
 ```
 
-- **Frontend:** React 18, Vite, Tailwind CSS, Lucide React (SOC icons).
-- **Backend:** Node.js, Express, `ws` (native WebSockets), `bcryptjs`, `fast-xml-parser`, `multer`.
-- **Integrity Engine:** Standard W3C Web Crypto API (`crypto.subtle.digest('SHA-256', ...)`).
-- **Database:** In-memory store initialized from realistic breach parameters.
+## Run locally
 
----
+Requirements: a current Node.js LTS release and npm.
 
-## Quick Start & Verification Guide
+Install the client and server dependencies from the repository root:
 
-### Prerequisites
-- Node.js (v18+)
-- npm
-
-### 1. Install Dependencies
-```bash
-# Install server dependencies
-npm install --prefix server
-
-# Install client dependencies
+```powershell
 npm install --prefix client
+npm install --prefix server
 ```
 
-### 2. Run the Air-Gapped Command Center
-```bash
-# Option A: Single-process production server (serves API, WebSockets & UI on port 4000)
-npm run build --prefix client
-npm run server
+Start the API and Vite development server together:
 
-# Option B: Concurrent development mode (Express on 4000, Vite HMR on 5173)
+```powershell
 npm run dev
 ```
 
-Open your browser to: **`http://localhost:4000`** (or `http://localhost:5173` if running dev server).
+The Vite client is normally available at `http://localhost:5173`. The server defaults to port `4000`; the Vite development proxy forwards `/api` and `/ws` requests to it. Set `PORT` to change the server port. To build the client bundle:
 
----
+```powershell
+npm run build
+```
 
-## 3-Minute Demo Walkthrough for Judges
+The production bundle is written to `client/dist`. Start the server with `npm run server`; when that bundle exists, the server can serve the built client and API from one process.
 
-1. **Step 1: The Command Center & Scope (0:00 - 0:45)**
-   - Land on the **Hive** screen. Point out the dark cyber command aesthetic and the top banner: *"AIR-GAPPED SECURE ZONE | STANDALONE HARDENED NODE #01"*.
-   - Point to the live counter strip: *"3 Encrypted · 2 Exfiltrated · 3 PHI Exposed · 8 Clean"*.
-   - Click **`ACTUARY-DB-01`**. Highlight the red alert: Protected Health Information (PHI) under HIPAA 45 CFR § 164.404. Show that the initial entry point was `DMZ-VPN-01` (FortiOS CVE-2024-21762) and the egress pipe was `SHADOW-S3-STAGING` (unauthorized shadow IT).
-   - Toggle **"Nessus Vulnerability Posture"** to show the honeycomb re-coloring based on vulnerability severity.
+## Prototype security and deployment notes
 
-2. **Step 2: The Tamper-Evident Hash Chain Showstopper (0:45 - 1:30)**
-   - Look at the top bar badge: `🔒 INTEGRITY VERIFIED: 8/8 Blocks (SHA-256)`.
-   - Click the red **"Tamper Demo"** button.
-   - Explain: *"An attacker who gained root access just modified the backend database entry #4 to delete evidence of the 42GB exfiltration."*
-   - Watch the badge instantly turn crimson and flash: `⚠️ TAMPER DETECTED AT BLOCK #4!`.
-   - Click the alert to open the **Cryptographic Hash Chain Inspector**. Show the exact mathematical discrepancy: *Computed SHA-256 vs. Stored Hash*.
-   - Click **"Restore Chain"** to return to green.
-
-3. **Step 3: Incident Documentation & Out-of-Band Chat (1:30 - 2:15)**
-   - Click **Incident**. Show the NIST phase stepper and live timeline feed.
-   - Type a note (*"Volatile memory acquisition completed on Domain Controller"*) and click **Append**. Show the instant SHA-256 block creation.
-   - Click **Chat**. Highlight the isolation banner: *"Do not use corporate email or Slack"*. Click one of the tactical canned responses to demonstrate rapid crisis communications.
-
-4. **Step 4: Nessus XML Ingestion & CISO Board Brief (2:15 - 3:00)**
-   - Click **Nessus**. Click **"Load Sample Incident Scan"** to parse `sample-incident-scan.nessus`. Show the CVE breakdown and CVSS scores.
-   - Click **Board Brief**. Show the Chris White CISO talk track:
-     - *What did we see?*
-     - *Why is it important?* (HIPAA 60-day OCR regulatory clock)
-     - *What do we need from you?* (Interactive Board of Directors decision checklist)
-     - *Confirmed vs. Unknown Anti-FUD Ledger*.
-   - Click **"Copy Markdown"** or **"Export Brief (PDF)"** to show how leadership receives an actionable memo in seconds.
-
----
-
-## Team & HackUTD Acknowledgments
-Built with ❤️ for **HackUTD 2026** and the **Winstead PC Cyber Incident Response Challenge**. Designed to provide incident commanders, CISOs, and external breach counsel with an irrefutable, independently secure command center when the stakes are highest.
+This repository is a demonstration prototype, not a production incident-response platform. The server stores its operational data in process memory, so changes are lost on restart and do not coordinate across multiple server instances. Demo identities are seeded in source for local use. Before any real deployment, replace demo authentication and secrets, configure TLS and restricted network access, review CORS and upload limits, add durable storage and backups, and have the authorization and audit design independently reviewed. A separate command-center machine or network does not by itself guarantee air-gap isolation.
