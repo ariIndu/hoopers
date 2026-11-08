@@ -27,15 +27,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install and Build Client
         run: |
+          cd client
           npm install
-          npm install --prefix client
-
-      - name: Build
-        run: npm run build
+          npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
