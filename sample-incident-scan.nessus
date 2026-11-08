@@ -1,0 +1,161 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+  <Policy>
+    <policyName>Beeswax Enterprise Incident &amp; Perimeter Vulnerability Audit</policyName>
+    <Preferences>
+      <ServerPreferences>
+        <preference><name>max_hosts</name><value>30</value></preference>
+      </ServerPreferences>
+    </Preferences>
+  </Policy>
+  <Report name="Incident Scope Assessment - Core Infrastructure &amp; Actuary Assets">
+    
+    <!-- Asset: dmz-vpn-concentrator (Initial Access Vector) -->
+    <ReportHost name="198.51.100.1">
+      <HostProperties>
+        <tag name="host-ip">198.51.100.1</tag>
+        <tag name="host-fqdn">dmz-vpn-concentrator.winstead.net</tag>
+        <tag name="operating-system">FortiOS 7.0.12</tag>
+        <tag name="system-type">firewall</tag>
+      </HostProperties>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="4" pluginID="190281" pluginName="FortiOS SSL-VPN Remote Code Execution (CVE-2024-21762)">
+        <description>An out-of-bounds write vulnerability in Fortinet FortiOS allows a remote unauthenticated attacker to execute arbitrary code via specially crafted HTTP requests.</description>
+        <solution>Upgrade to FortiOS version 7.0.14 or later immediately.</solution>
+        <cve>CVE-2024-21762</cve>
+        <cvss_base_score>9.8</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="143110" pluginName="TLS Version 1.0 / 1.1 Deprecated Protocol Enabled">
+        <description>The remote service encrypts traffic using an outdated and deprecated version of TLS.</description>
+        <solution>Disable TLS 1.0 and 1.1; enforce TLS 1.3.</solution>
+        <cvss_base_score>7.5</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+    <!-- Asset: actuary-db-01 (PHI Crown Jewels) -->
+    <ReportHost name="10.0.40.12">
+      <HostProperties>
+        <tag name="host-ip">10.0.40.12</tag>
+        <tag name="host-fqdn">actuary-db-01.internal.winstead</tag>
+        <tag name="operating-system">Red Hat Enterprise Linux 8.7</tag>
+        <tag name="system-type">database</tag>
+      </HostProperties>
+      <ReportItem port="5432" svc_name="postgresql" protocol="tcp" severity="4" pluginID="178920" pluginName="PostgreSQL Extension Script SQL Injection / Privilege Escalation (CVE-2023-39417)">
+        <description>PostgreSQL versions prior to 15.4 allow an authenticated user to execute arbitrary SQL commands with superuser privileges via extension creation.</description>
+        <solution>Update PostgreSQL to version 15.4, 14.9, 13.12, 12.16, or 11.21.</solution>
+        <cve>CVE-2023-39417</cve>
+        <cvss_base_score>9.0</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="2" pluginID="70658" pluginName="SSH Weak MAC Algorithms Enabled">
+        <description>The remote SSH daemon supports weak Message Authentication Code (MAC) algorithms.</description>
+        <solution>Configure sshd_config with MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com.</solution>
+        <cvss_base_score>5.3</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="5432" svc_name="postgresql" protocol="tcp" severity="3" pluginID="160211" pluginName="Unencrypted PHI Actuary Database Connection Listener">
+        <description>Client connections transmit sensitive health actuary data without mandatory SSL/TLS enforcement.</description>
+        <solution>Set ssl = on in postgresql.conf.</solution>
+        <cvss_base_score>7.4</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+    <!-- Asset: ad-dc-primary (Active Directory Domain Controller) -->
+    <ReportHost name="10.0.10.5">
+      <HostProperties>
+        <tag name="host-ip">10.0.10.5</tag>
+        <tag name="host-fqdn">ad-dc-primary.internal.winstead</tag>
+        <tag name="operating-system">Windows Server 2022</tag>
+        <tag name="system-type">domain-controller</tag>
+      </HostProperties>
+      <ReportItem port="445" svc_name="cifs" protocol="tcp" severity="4" pluginID="140657" pluginName="Microsoft Active Directory Netlogon Elevation of Privilege (Zerologon - CVE-2020-1472)">
+        <description>An elevation of privilege vulnerability exists when an attacker establishes a vulnerable Netlogon secure channel connection to a domain controller using MS-NRPC.</description>
+        <solution>Apply Microsoft security updates and enforce secure RPC mode.</solution>
+        <cve>CVE-2020-1472</cve>
+        <cvss_base_score>10.0</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="88" svc_name="kerberos" protocol="tcp" severity="3" pluginID="155687" pluginName="Kerberos PAC Validation Signature Privilege Escalation (CVE-2021-42287)">
+        <description>Allows domain users to impersonate domain controllers via sAMAccountName spoofing.</description>
+        <solution>Install KB5008380 / KB5008602 security update.</solution>
+        <cve>CVE-2021-42287</cve>
+        <cvss_base_score>8.8</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+    <!-- Asset: billing-sql-cluster (Client Financials) -->
+    <ReportHost name="10.0.20.8">
+      <HostProperties>
+        <tag name="host-ip">10.0.20.8</tag>
+        <tag name="host-fqdn">billing-sql-cluster.internal.winstead</tag>
+        <tag name="operating-system">Windows Server 2019</tag>
+        <tag name="system-type">database</tag>
+      </HostProperties>
+      <ReportItem port="1433" svc_name="ms-sql-s" protocol="tcp" severity="3" pluginID="101433" pluginName="Microsoft SQL Server Blank 'sa' Password Suspected / Weak Authentication">
+        <description>The remote MS SQL instance accepts weak SQL authentication credentials.</description>
+        <solution>Enforce Windows Authentication only and set high-entropy passphrases.</solution>
+        <cvss_base_score>8.1</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="445" svc_name="cifs" protocol="tcp" severity="3" pluginID="57608" pluginName="SMB Signing Disabled or Not Required">
+        <description>Signing is not required on the remote SMB server. This allows man-in-the-middle attacks.</description>
+        <solution>Enable SMB signing in Group Policy.</solution>
+        <cvss_base_score>7.1</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+    <!-- Asset: potomac-workbench-ai (Potomac / Myriddian Workbench) -->
+    <ReportHost name="10.0.30.22">
+      <HostProperties>
+        <tag name="host-ip">10.0.30.22</tag>
+        <tag name="host-fqdn">potomac-workbench-ai.internal.winstead</tag>
+        <tag name="operating-system">Ubuntu 22.04 LTS</tag>
+        <tag name="system-type">analytics</tag>
+      </HostProperties>
+      <ReportItem port="8080" svc_name="http" protocol="tcp" severity="4" pluginID="156014" pluginName="Apache Log4j JNDI Remote Code Execution (Log4Shell - CVE-2021-44228)">
+        <description>Apache Log4j2 versions 2.0-beta9 through 2.15.0 are vulnerable to remote code execution via JNDI LDAP lookup.</description>
+        <solution>Upgrade log4j-core to 2.17.1 or newer.</solution>
+        <cve>CVE-2021-44228</cve>
+        <cvss_base_score>10.0</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="8888" svc_name="http" protocol="tcp" severity="2" pluginID="110442" pluginName="Jupyter / Analytics Kernel Exposed Without Token">
+        <description>Unauthenticated analytics interface allows arbitrary Python script execution.</description>
+        <solution>Bind to 127.0.0.1 or require cryptographic session tokens.</solution>
+        <cvss_base_score>6.8</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+    <!-- Asset: shadow-s3-backup (Shadow IT Unmonitored Storage) -->
+    <ReportHost name="10.0.99.50">
+      <HostProperties>
+        <tag name="host-ip">10.0.99.50</tag>
+        <tag name="host-fqdn">shadow-s3-backup.cloud.winstead</tag>
+        <tag name="operating-system">MinIO / Cloud Object Storage</tag>
+        <tag name="system-type">storage</tag>
+      </HostProperties>
+      <ReportItem port="9000" svc_name="http" protocol="tcp" severity="4" pluginID="172288" pluginName="MinIO Information Disclosure &amp; Admin Secret Exposure (CVE-2023-28432)">
+        <description>MinIO releases prior to RELEASE.2023-03-20T20-16-18Z return all environment variables including MINIO_SECRET_KEY.</description>
+        <solution>Upgrade MinIO cluster to latest patched release.</solution>
+        <cve>CVE-2023-28432</cve>
+        <cvss_base_score>9.8</cvss_base_score>
+      </ReportItem>
+      <ReportItem port="9000" svc_name="http" protocol="tcp" severity="3" pluginID="140221" pluginName="Shadow IT Storage: Public Read/Write Access Policy">
+        <description>Unmanaged backup repository bucket policy permits unauthorized anonymous PUT operations.</description>
+        <solution>Block public access and assign IAM role restrictions.</solution>
+        <cvss_base_score>8.6</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+    <!-- Asset: patient-claims-srv (PHI / PII) -->
+    <ReportHost name="10.0.40.18">
+      <HostProperties>
+        <tag name="host-ip">10.0.40.18</tag>
+        <tag name="host-fqdn">patient-claims-srv.internal.winstead</tag>
+        <tag name="operating-system">Windows Server 2019</tag>
+        <tag name="system-type">application</tag>
+      </HostProperties>
+      <ReportItem port="445" svc_name="cifs" protocol="tcp" severity="3" pluginID="128990" pluginName="Microsoft Windows Spooler Remote Code Execution (PrintNightmare - CVE-2021-34527)">
+        <description>The Windows Print Spooler service improperly performs privileged file operations.</description>
+        <solution>Disable Print Spooler service on domain servers.</solution>
+        <cve>CVE-2021-34527</cve>
+        <cvss_base_score>8.8</cvss_base_score>
+      </ReportItem>
+    </ReportHost>
+
+  </Report>
+</NessusClientData_v2>
